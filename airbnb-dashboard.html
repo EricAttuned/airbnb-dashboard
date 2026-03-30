@@ -3065,36 +3065,43 @@ function renderExpenseTracker() {
 
 // ── Auto-load on page open ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  // Airbnb iCal
-  const savedIcal = localStorage.getItem('icalUrl');
-  if (savedIcal) {
-    document.getElementById('icalUrl').value = savedIcal;
-    loadIcal(true);
-  }
+  // Fetch env-var config from Netlify function, then initialize with localStorage fallback
+  fetch('/.netlify/functions/config')
+    .then(r => r.json())
+    .catch(() => ({}))
+    .then(cfg => {
+      // iCal URL — env var as default, localStorage overrides
+      const icalUrl = localStorage.getItem('icalUrl') || cfg.icalUrl || '';
+      if (icalUrl) {
+        document.getElementById('icalUrl').value = icalUrl;
+        if (!localStorage.getItem('icalUrl')) localStorage.setItem('icalUrl', icalUrl);
+        loadIcal(true);
+      }
 
-  // Restore Sheet / API key / Gmail fields
-  const savedId    = localStorage.getItem('rentSheetId');
-  const savedKey   = localStorage.getItem('rentApiKey');
-  const savedCid   = localStorage.getItem('gmailClientId');
-  const savedEmail = localStorage.getItem('reminderEmail');
-  if (savedId)    document.getElementById('sheetId').value       = savedId;
-  if (savedKey)   document.getElementById('sheetsApiKey').value  = savedKey;
-  if (savedCid)   document.getElementById('gmailClientId').value = savedCid;
-  if (savedEmail) document.getElementById('reminderEmail').value = savedEmail;
+      // Restore Sheet / API key / Gmail fields — localStorage overrides env vars
+      const savedId    = localStorage.getItem('rentSheetId')   || cfg.sheetsId      || '';
+      const savedKey   = localStorage.getItem('rentApiKey')    || cfg.sheetsApiKey  || '';
+      const savedCid   = localStorage.getItem('gmailClientId') || cfg.gmailClientId || '';
+      const savedEmail = localStorage.getItem('reminderEmail') || '';
+      if (savedId)    { document.getElementById('sheetId').value       = savedId;    localStorage.setItem('rentSheetId',   savedId); }
+      if (savedKey)   { document.getElementById('sheetsApiKey').value  = savedKey;   localStorage.setItem('rentApiKey',    savedKey); }
+      if (savedCid)   { document.getElementById('gmailClientId').value = savedCid;   localStorage.setItem('gmailClientId', savedCid); }
+      if (savedEmail) document.getElementById('reminderEmail').value = savedEmail;
 
-  // Restore tenants from cache + render immediately (no API call needed)
-  const cachedTenants = localStorage.getItem('rentTenants');
-  if (cachedTenants) {
-    try { tenants = JSON.parse(cachedTenants); renderRentTracker(); } catch(_) {}
-  }
+      // Restore tenants from cache + render immediately (no API call needed)
+      const cachedTenants = localStorage.getItem('rentTenants');
+      if (cachedTenants) {
+        try { tenants = JSON.parse(cachedTenants); renderRentTracker(); } catch(_) {}
+      }
 
-  // Auto-load from sheet if credentials are saved
-  if (savedId && savedKey) rentLoadSheet();
+      // Auto-load from sheet if credentials are saved
+      if (savedId && savedKey) rentLoadSheet();
 
-  // Auto-scan Gmail if we're in the 1st–5th window and user already signed in this session
-  setTimeout(() => {
-    if (gmailToken) autoScanIfNeeded();
-  }, 3000);
+      // Auto-scan Gmail if we're in the 1st–5th window and user already signed in this session
+      setTimeout(() => {
+        if (gmailToken) autoScanIfNeeded();
+      }, 3000);
+    });
 
   // Income statement + expense tracker
   renderExpenseTracker();
