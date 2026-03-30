@@ -1,0 +1,3108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Airbnb Property Dashboard</title>
+  <!-- Google Identity Services (for Gmail OAuth) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --red: #FF385C;
+      --red-dark: #D93025;
+      --bg: #f7f7f7;
+      --card: #ffffff;
+      --text: #222222;
+      --muted: #717171;
+      --border: #e0e0e0;
+      --karla: #4f46e5;
+      --karla-bg: #eef2ff;
+      --priscilla: #059669;
+      --priscilla-bg: #ecfdf5;
+      --unassigned: #d97706;
+      --unassigned-bg: #fffbeb;
+      --radius: 12px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo svg { width: 28px; height: 28px; fill: var(--red); }
+    .logo h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .logo span { color: var(--red); }
+
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .ical-input {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .ical-input input {
+      width: 280px; padding: 8px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .ical-input input:focus { border-color: var(--red); }
+    .ical-input input::placeholder { color: var(--muted); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 8px 16px; border-radius: 8px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: var(--red); color: #fff; }
+    .btn-primary:hover { background: var(--red-dark); }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+    .btn-karla { background: var(--karla-bg); color: var(--karla); border: 1px solid var(--karla); }
+    .btn-karla:hover { background: var(--karla); color: #fff; }
+    .btn-priscilla { background: var(--priscilla-bg); color: var(--priscilla); border: 1px solid var(--priscilla); }
+    .btn-priscilla:hover { background: var(--priscilla); color: #fff; }
+
+    /* ── Main layout ── */
+    main { max-width: 1280px; margin: 0 auto; padding: 28px 32px; }
+
+    /* ── Stats row ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .stat-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: var(--text); }
+    .stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-card .value.red { color: var(--red); }
+
+    /* ── Section titles ── */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 16px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .icon { font-size: 18px; }
+
+    /* ── Cards/Tables ── */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow); overflow: hidden;
+      margin-bottom: 28px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #fafafa; border-bottom: 1px solid var(--border); }
+    th {
+      text-align: left; padding: 11px 16px;
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .badge-karla { background: var(--karla-bg); color: var(--karla); }
+    .badge-priscilla { background: var(--priscilla-bg); color: var(--priscilla); }
+    .badge-unassigned { background: var(--unassigned-bg); color: var(--unassigned); }
+    .badge-checkin { background: #dbeafe; color: #1d4ed8; }
+    .badge-checkout { background: #fce7f3; color: #be185d; }
+    .badge-staying { background: #dcfce7; color: #15803d; }
+    .badge-future { background: #f1f5f9; color: #475569; }
+
+    /* ── Cleaner pills ── */
+    .cleaner-select { display: flex; gap: 6px; align-items: center; }
+    .cleaner-btn {
+      padding: 4px 10px; border-radius: 20px; border: 1.5px solid transparent;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cleaner-btn.karla {
+      background: var(--karla-bg); color: var(--karla);
+      border-color: transparent;
+    }
+    .cleaner-btn.karla.active { border-color: var(--karla); }
+    .cleaner-btn.priscilla {
+      background: var(--priscilla-bg); color: var(--priscilla);
+      border-color: transparent;
+    }
+    .cleaner-btn.priscilla.active { border-color: var(--priscilla); }
+    .cleaner-btn:hover { opacity: 0.8; }
+
+    /* ── Message modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: var(--radius);
+      padding: 28px; width: 480px; max-width: 95vw;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .modal textarea {
+      width: 100%; min-height: 120px;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 13px;
+      font-family: inherit; resize: vertical; outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal textarea:focus { border-color: var(--red); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    .modal .recipient-info {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: var(--bg); border-radius: 8px;
+      margin-bottom: 12px; font-size: 13px;
+    }
+    .modal .recipient-info .name { font-weight: 600; }
+    .modal .recipient-info .number { color: var(--muted); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 48px 20px; color: var(--muted);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1a1a1a; color: #fff;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0; pointer-events: none;
+      transform: translateY(8px);
+      transition: all 0.25s;
+      z-index: 300;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Loading ── */
+    .loading { text-align: center; padding: 32px; color: var(--muted); }
+    .spinner {
+      width: 24px; height: 24px; border: 3px solid var(--border);
+      border-top-color: var(--red); border-radius: 50%;
+      animation: spin 0.7s linear infinite; display: inline-block; margin-bottom: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Summary section ── */
+    .cleaning-summary {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 28px;
+    }
+    .cleaner-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .cleaner-card .ch { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .cleaner-card .ch h3 { font-size: 14px; font-weight: 700; }
+    .cleaner-card .ch span { font-size: 12px; color: var(--muted); }
+    .cleaner-card .upcoming-list { list-style: none; }
+    .cleaner-card .upcoming-list li {
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+      font-size: 12px; display: flex; justify-content: space-between;
+    }
+    .cleaner-card .upcoming-list li:last-child { border-bottom: none; }
+    .cleaner-card .upcoming-list li .date { font-weight: 600; }
+    .cleaner-card .upcoming-list li .guest-name { color: var(--muted); }
+
+    /* ── Guest comms ── */
+    .guest-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: var(--red); text-decoration: none; font-size: 12px; font-weight: 600;
+    }
+    .guest-link:hover { text-decoration: underline; }
+
+    /* ── Notes ── */
+    /* ── Cleaning date input ── */
+    .date-input {
+      padding: 4px 6px; border: 1.5px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: inherit; color: var(--text);
+      background: var(--card); outline: none; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .date-input:hover, .date-input:focus { border-color: var(--red); }
+    .date-input.date-custom {
+      border-color: var(--unassigned); color: var(--unassigned);
+      background: var(--unassigned-bg);
+    }
+    .date-reset {
+      cursor: pointer; color: var(--unassigned); font-size: 14px;
+      margin-left: 4px; vertical-align: middle;
+      transition: opacity 0.15s;
+    }
+    .date-reset:hover { opacity: 0.6; }
+
+    /* ── Cleaner dropdown (Bookings tab) ── */
+    .cleaner-dropdown {
+      padding: 4px 8px; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; border: 1.5px solid;
+      outline: none; font-family: inherit; transition: all 0.15s;
+    }
+    .cleaner-dropdown.sel-karla {
+      background: var(--karla-bg); color: var(--karla); border-color: var(--karla);
+    }
+    .cleaner-dropdown.sel-priscilla {
+      background: var(--priscilla-bg); color: var(--priscilla); border-color: var(--priscilla);
+    }
+    .cleaner-dropdown.sel-unassigned {
+      background: var(--unassigned-bg); color: var(--unassigned); border-color: var(--unassigned);
+    }
+    .cleaner-dropdown:disabled {
+      background: #f1f5f9; color: #aaa; border-color: #e0e0e0; cursor: default;
+    }
+
+    .note-input {
+      width: 100%; border: none; background: transparent;
+      font-size: 12px; color: var(--muted); font-family: inherit;
+      resize: none; outline: none; min-height: 34px;
+    }
+    .note-input::placeholder { color: #bbb; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; gap: 2px;
+      border-bottom: 1px solid var(--border); margin-bottom: 0;
+    }
+    .tab {
+      padding: 11px 18px; font-size: 13px; font-weight: 600;
+      color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s; margin-bottom: -1px;
+    }
+    .tab.active { color: var(--red); border-bottom-color: var(--red); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      main { padding: 16px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .cleaning-summary { grid-template-columns: 1fr; }
+      .ical-input input { width: 180px; }
+    }
+
+    /* ── Rent Tracker ── */
+    .rent-section {
+      max-width: 1280px; margin: 0 auto 48px; padding: 0 32px;
+    }
+    .rent-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding-top: 8px;
+      border-top: 2px solid var(--border);
+    }
+    .rent-section-title {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .rent-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 24px;
+    }
+    .rent-stat-card {
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+    .rent-stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+    .rent-stat-card .value { font-size: 24px; font-weight: 700; color: var(--text); }
+    .rent-stat-card .value.green { color: #059669; }
+    .rent-stat-card .value.red { color: var(--red); }
+    .rent-stat-card .value.orange { color: var(--unassigned); }
+
+    .rent-table-wrap { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow-x: auto; }
+    .rent-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .rent-table thead tr { background: #fafafa; border-bottom: 1px solid var(--border); }
+    .rent-table th { text-align: left; padding: 11px 14px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    .rent-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    .rent-table tr:last-child td { border-bottom: none; }
+    .rent-table tr:hover td { background: #fafafa; }
+
+    /* Month payment cells */
+    .pay-cell {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%; font-size: 13px;
+      cursor: pointer; border: 2px solid transparent;
+      transition: all 0.15s; user-select: none;
+    }
+    .pay-cell.paid    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+    .pay-cell.unpaid  { background: #fee2e2; border-color: #dc2626; color: #b91c1c; }
+    .pay-cell.pending { background: var(--unassigned-bg); border-color: var(--unassigned); color: var(--unassigned); }
+    .pay-cell.na      { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; }
+    .pay-cell:hover   { opacity: 0.75; transform: scale(1.12); }
+
+    .month-header { text-align: center !important; font-size: 10px !important; padding: 11px 6px !important; min-width: 38px; }
+    .month-cell { text-align: center; padding: 12px 6px !important; }
+
+    .rent-amount { font-weight: 700; color: var(--text); }
+    .pay-method-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+      background: #f1f5f9; color: #475569;
+    }
+
+    /* Config panel */
+    .rent-config-panel {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px;
+      margin-bottom: 18px; box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .rent-config-row {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+    .rent-config-label {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      white-space: nowrap; min-width: 110px;
+    }
+    .rent-config-row input {
+      flex: 1; min-width: 180px; padding: 7px 11px;
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: 13px; outline: none; transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    .rent-config-row input:focus { border-color: #059669; }
+    .rent-config-row input::placeholder { color: var(--muted); }
+
+    .rent-empty {
+      text-align: center; padding: 40px 20px; color: var(--muted);
+    }
+    .rent-empty .icon { font-size: 36px; margin-bottom: 10px; }
+    .rent-empty p { font-size: 14px; }
+
+    .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; }
+    .legend-dot.paid    { background: #dcfce7; border-color: #16a34a; }
+    .legend-dot.unpaid  { background: #fee2e2; border-color: #dc2626; }
+    .legend-dot.pending { background: var(--unassigned-bg); border-color: var(--unassigned); }
+    .legend-dot.na      { background: #f1f5f9; border-color: #e2e8f0; }
+
+    @media (max-width: 900px) {
+      .rent-section { padding: 0 16px; }
+      .rent-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ── Income Statement ── */
+    .income-section {
+      max-width: 1280px; margin: 0 auto 48px; padding: 0 32px;
+    }
+    .income-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding-top: 8px; border-top: 2px solid var(--border);
+    }
+    .income-section-title {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .income-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;
+    }
+    .income-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .income-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border); background: #fafafa;
+    }
+    .income-card-header h3 {
+      font-size: 13px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em; margin: 0;
+    }
+    .income-card-total {
+      font-size: 16px; font-weight: 700;
+    }
+    .income-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .income-table th {
+      text-align: left; padding: 9px 14px; font-size: 11px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .income-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    .income-table tr:last-child td { border-bottom: none; }
+    .income-table tr:hover td { background: #fafafa; }
+    .income-amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .income-positive { color: #059669; }
+    .income-negative { color: var(--red); }
+    .income-summary-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow);
+      display: flex; gap: 0; margin-bottom: 24px;
+    }
+    .income-summary-item {
+      flex: 1; text-align: center; padding: 0 16px;
+      border-right: 1px solid var(--border);
+    }
+    .income-summary-item:last-child { border-right: none; }
+    .income-summary-item .label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+    .income-summary-item .value { font-size: 24px; font-weight: 700; }
+    /* Add revenue form */
+    .add-revenue-form {
+      display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+      padding: 12px 14px; border-bottom: 1px solid var(--border); background: #f8fffe;
+    }
+    .add-revenue-form .field { display: flex; flex-direction: column; gap: 3px; }
+    .add-revenue-form label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .add-revenue-form input, .add-revenue-form select {
+      padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: inherit; outline: none;
+    }
+    .add-revenue-form input:focus, .add-revenue-form select:focus { border-color: #059669; }
+    /* inline edit */
+    .income-edit-input {
+      padding: 3px 6px; border: 1.5px solid var(--border); border-radius: 5px;
+      font-size: 12px; font-family: inherit; outline: none; width: 80px;
+    }
+    .income-edit-input:focus { border-color: var(--red); }
+    .income-row-actions { display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+    .income-btn {
+      background: none; border: none; cursor: pointer; font-size: 13px;
+      padding: 2px 5px; border-radius: 4px; color: var(--muted); transition: all 0.12s;
+    }
+    .income-btn:hover { background: #f1f5f9; color: var(--text); }
+    .income-btn.del:hover { background: #fff0f0; color: var(--red); }
+    .income-btn.save:hover { background: #ecfdf5; color: #059669; }
+    .income-empty { padding: 20px 14px; color: var(--muted); font-size: 12px; text-align: center; }
+    /* Add-item inline form row at bottom of each ledger panel */
+    .income-add-row {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      padding: 10px 14px; border-top: 1px solid var(--border); background: #f8fffe;
+    }
+    .income-add-row input, .income-add-row select {
+      padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: inherit; outline: none;
+    }
+    .income-add-row input:focus, .income-add-row select:focus { border-color: #059669; }
+    .income-add-row .btn-add {
+      padding: 5px 12px; border-radius: 6px; border: none; background: #059669;
+      color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .income-add-row .btn-add:hover { background: #047857; }
+    /* Tenant rent badge in revenue panel */
+    .rent-source-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px;
+      font-weight: 600; background: #eef2ff; color: #4f46e5; white-space: nowrap;
+    }
+    /* ── Auto-Rules panel ── */
+    .auto-rules-panel {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
+      padding: 16px 18px; margin-bottom: 16px; font-size: 13px;
+    }
+    .auto-rules-panel h4 {
+      font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #15803d;
+    }
+    .auto-rules-panel p {
+      color: #166534; margin-bottom: 12px; font-size: 12px; line-height: 1.5;
+    }
+    .rules-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .rule-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: #fff; border: 1px solid #d1fae5; border-radius: 8px; padding: 8px 12px;
+    }
+    .rule-row-name { font-weight: 600; font-size: 13px; min-width: 130px; }
+    .rule-type-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .rule-type-badge.revenue { background: #dcfce7; color: #15803d; }
+    .rule-type-badge.expense { background: #fee2e2; color: #dc2626; }
+    .rule-detail { font-size: 11px; color: var(--muted); font-family: monospace; flex: 1; }
+    .rule-open-btn {
+      padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 6px;
+      border: 1px solid #059669; background: #fff; color: #059669; cursor: pointer;
+      white-space: nowrap; transition: all 0.12s;
+    }
+    .rule-open-btn:hover { background: #059669; color: #fff; }
+    .rules-custom-row {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      background: #fff; border: 1px solid #d1fae5; border-radius: 8px;
+      padding: 8px 12px; margin-top: 4px;
+    }
+    .rules-custom-row input, .rules-custom-row select {
+      padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: inherit; outline: none;
+    }
+    .rules-custom-row input:focus, .rules-custom-row select:focus { border-color: #059669; }
+    .rules-divider { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin: 10px 0 6px; }
+    /* ── Pending-review banner ── */
+    .pending-review-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fffbeb; border-bottom: 1px solid #fde68a;
+      padding: 8px 14px; font-size: 12px; font-weight: 600; color: #92400e; cursor: pointer;
+    }
+    .pending-review-banner:hover { background: #fef9c3; }
+    .pending-review-rows { background: #fff; }
+    .pending-review-row {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      padding: 8px 14px; border-bottom: 1px solid #fef3c7; font-size: 12px;
+    }
+    .pending-review-row:last-child { border-bottom: none; }
+    .pending-review-row .pr-date { color: var(--muted); white-space: nowrap; min-width: 60px; }
+    .pending-review-row .pr-desc { flex: 1; color: var(--text); }
+    .pending-review-row .pr-input {
+      padding: 3px 6px; border: 1.5px solid #fbbf24; border-radius: 5px;
+      font-size: 12px; width: 80px; outline: none;
+    }
+    .pending-review-row .pr-input:focus { border-color: #059669; }
+    .pending-review-row .pr-save {
+      padding: 3px 8px; border-radius: 5px; border: none; background: #059669;
+      color: #fff; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .pending-review-row .pr-discard {
+      background: none; border: none; cursor: pointer; font-size: 12px;
+      color: var(--muted); padding: 2px 4px; border-radius: 4px;
+    }
+    .pending-review-row .pr-discard:hover { background: #fff0f0; color: var(--red); }
+
+    /* ── Expense Tracker ── */
+    .expense-section {
+      max-width: 1280px; margin: 0 auto 48px; padding: 0 32px;
+    }
+    .expense-section h2 {
+      font-size: 20px; font-weight: 700; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .expense-form {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow);
+      display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .expense-form .field { display: flex; flex-direction: column; gap: 4px; }
+    .expense-form label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .expense-form input, .expense-form select {
+      padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+      font-size: 13px; font-family: inherit; outline: none;
+    }
+    .expense-form input:focus, .expense-form select:focus { border-color: var(--red); }
+    .expense-list {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .expense-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .expense-list th {
+      text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .expense-list td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+    .expense-list tr:last-child td { border-bottom: none; }
+    .expense-delete {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 15px; padding: 2px 6px; border-radius: 4px;
+    }
+    .expense-delete:hover { color: var(--red); background: #fff0f0; }
+    .cc-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+      font-weight: 600; background: #f1f5f9; color: #475569;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 1C10.477 1 6 5.477 6 11c0 3.09 1.404 5.857 3.625 7.75L16 31l6.375-12.25A9.965 9.965 0 0026 11c0-5.523-4.477-10-10-10zm0 14a4 4 0 110-8 4 4 0 010 8z"/>
+    </svg>
+    <h1>Property <span>Dashboard</span></h1>
+  </div>
+  <div class="header-actions">
+    <div class="ical-input">
+      <input type="text" id="icalUrl" placeholder="Paste Airbnb iCal URL…" />
+      <button class="btn btn-primary" onclick="loadIcal()">&#8635; Sync</button>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="loadDemoData()">Demo Data</button>
+  </div>
+</header>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Message Modal -->
+<div class="modal-overlay" id="msgModal">
+  <div class="modal">
+    <h2>&#128172; Send iMessage</h2>
+    <div class="modal .recipient-info" id="modalRecipient" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px;">
+      <span id="modalName" style="font-weight:600;"></span>
+      <span id="modalNumber" style="color:var(--muted);"></span>
+    </div>
+    <textarea id="msgText" placeholder="Type your message…"></textarea>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+      &#128241; This will open Messages app and pre-fill the message for you to send.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="sendMessage()">&#9654; Open in Messages</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<main>
+  <!-- Stats row -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Upcoming Bookings</div>
+      <div class="value red" id="statUpcoming">—</div>
+      <div class="sub">next 30 days</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Next Check-In</div>
+      <div class="value" id="statNextCheckin" style="font-size:16px;padding-top:6px;">—</div>
+      <div class="sub" id="statNextGuest"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Cleanings Scheduled</div>
+      <div class="value" id="statCleanings">—</div>
+      <div class="sub">assigned cleanings</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Unassigned Cleanings</div>
+      <div class="value" id="statUnassigned" style="color:var(--unassigned);">—</div>
+      <div class="sub">need a cleaner</div>
+    </div>
+  </div>
+
+  <!-- Cleaner Summary Cards -->
+  <div class="section-header">
+    <div class="section-title"><span class="icon">🧹</span> Cleaner Schedules</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm btn-karla" onclick="messageModal('Karla', '+15107986961')">&#128172; Message Karla</button>
+      <button class="btn btn-sm btn-priscilla" onclick="messageModal('Priscilla', '+17326214778')">&#128172; Message Priscilla</button>
+    </div>
+  </div>
+  <div class="cleaning-summary">
+    <div class="cleaner-card">
+      <div class="ch">
+        <h3 style="color:var(--karla)">🟣 Karla</h3>
+        <span>+1 (510) 798-6961</span>
+      </div>
+      <ul class="upcoming-list" id="karlaList">
+        <li><span class="guest-name">No cleanings assigned yet</span></li>
+      </ul>
+    </div>
+    <div class="cleaner-card">
+      <div class="ch">
+        <h3 style="color:var(--priscilla)">🟢 Priscilla</h3>
+        <span>+1 (732) 621-4778</span>
+      </div>
+      <ul class="upcoming-list" id="priscillaList">
+        <li><span class="guest-name">No cleanings assigned yet</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="card">
+    <div class="tabs" style="padding: 0 16px;">
+      <div class="tab active" onclick="switchTab('bookings', this)">📅 Bookings</div>
+      <div class="tab" onclick="switchTab('cleaning', this)">🧹 Cleaning Schedule</div>
+      <div class="tab" onclick="switchTab('guests', this)">💬 Guest Communications</div>
+    </div>
+
+    <!-- BOOKINGS TAB -->
+    <div id="tab-bookings" class="tab-content active">
+      <div id="bookingsContent">
+        <div class="empty-state">
+          <div class="icon">📅</div>
+          <p>Paste your Airbnb iCal URL above and click <strong>Sync</strong>, or try <strong>Demo Data</strong>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLEANING TAB -->
+    <div id="tab-cleaning" class="tab-content">
+      <div id="cleaningContent">
+        <div class="empty-state">
+          <div class="icon">🧹</div>
+          <p>Sync your bookings first to generate the cleaning schedule.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- GUESTS TAB -->
+    <div id="tab-guests" class="tab-content">
+      <div id="guestsContent">
+        <div class="empty-state">
+          <div class="icon">💬</div>
+          <p>Sync your bookings to see guest communication history.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  TENANT RENT TRACKER                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="rent-section">
+  <div class="rent-section-header">
+    <div class="rent-section-title">🏠 Tenant Rent Tracker</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot paid"></div> Paid</div>
+        <div class="legend-item"><div class="legend-dot pending"></div> Pending</div>
+        <div class="legend-item"><div class="legend-dot unpaid"></div> Late</div>
+        <div class="legend-item"><div class="legend-dot na"></div> N/A</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="rentRefresh()" title="Re-fetch sheet + scan Gmail">&#8635; Refresh</button>
+      <button class="btn btn-sm" style="background:#059669;color:#fff;" onclick="rentLoadDemo()">Demo Data</button>
+    </div>
+  </div>
+
+  <!-- Config panel -->
+  <div class="rent-config-panel" id="rentConfigPanel">
+
+    <!-- Row 1: Google Sheets API -->
+    <div class="rent-config-row">
+      <span class="rent-config-label">📊 Google Sheet</span>
+      <input type="text" id="sheetId"
+        placeholder="Sheet ID  (from the URL: /spreadsheets/d/SHEET_ID/edit)" />
+      <input type="text" id="sheetsApiKey"
+        placeholder="Google API Key" style="max-width:260px;" />
+      <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" onclick="rentLoadSheet()">&#8635; Load Sheet</button>
+    </div>
+
+    <!-- Row 2: Gmail OAuth -->
+    <div class="rent-config-row">
+      <span class="rent-config-label">✉️ Gmail</span>
+      <input type="text" id="gmailClientId"
+        placeholder="OAuth Client ID  (from Google Cloud Console)" />
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <button class="btn btn-sm" style="background:#4f46e5;color:#fff;border:none;white-space:nowrap;" id="gmailAuthBtn" onclick="gmailSignIn()">🔑 Sign in with Google</button>
+        <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" id="gmailScanBtn" onclick="gmailSignAndScan()">⚡ Sign in &amp; Scan Now</button>
+        <span id="gmailStatus" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+      </div>
+    </div>
+
+    <!-- Row 3: Reminder email + auto-scan info -->
+    <div class="rent-config-row">
+      <span class="rent-config-label">🔔 Reminders</span>
+      <input type="email" id="reminderEmail"
+        placeholder="Your email for unpaid-rent reminders (sent on 5th of month)"
+        oninput="localStorage.setItem('reminderEmail', this.value)" />
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Auto-scans days 1–5 · Reminder on day 5</span>
+    </div>
+
+    <!-- Setup help -->
+    <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+      <a href="#" onclick="toggleSheetHelp(event)" style="font-size:12px;color:var(--muted);text-decoration:none;">ℹ️ How to get these credentials</a>
+    </div>
+  </div>
+
+  <!-- Setup instructions (collapsible) -->
+  <div id="sheetHelp" style="display:none;background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:16px 20px;margin-bottom:16px;font-size:13px;color:#78350f;line-height:1.7;">
+    <strong>Step 1 — Create a Google Cloud project &amp; enable APIs</strong>
+    <ol style="margin:6px 0 10px 18px;">
+      <li>Go to <a href="https://console.cloud.google.com/" target="_blank" style="color:#b45309;">console.cloud.google.com</a> and create a new project.</li>
+      <li>Enable <strong>Google Sheets API</strong> and <strong>Gmail API</strong> (search in "APIs &amp; Services → Library").</li>
+    </ol>
+    <strong>Step 2 — Get an API Key (for Sheets, read-only)</strong>
+    <ol style="margin:6px 0 10px 18px;">
+      <li>Go to <strong>APIs &amp; Services → Credentials → Create Credentials → API Key</strong>.</li>
+      <li>Copy the key and paste it in the <em>Google API Key</em> field above.</li>
+      <li>Make sure your Google Sheet is set to <strong>"Anyone with the link can view"</strong> (Share → change access).</li>
+    </ol>
+    <strong>Step 3 — Get an OAuth Client ID (for Gmail)</strong>
+    <ol style="margin:6px 0 10px 18px;">
+      <li>Go to <strong>Credentials → Create Credentials → OAuth 2.0 Client ID</strong>.</li>
+      <li>Application type: <strong>Web application</strong>.</li>
+      <li>Under <em>Authorized JavaScript origins</em> add: <code style="font-size:11px;">http://localhost:8766</code></li>
+      <li>Copy the Client ID and paste it in the <em>OAuth Client ID</em> field above.</li>
+      <li>On the OAuth consent screen, add your Google account as a test user.</li>
+    </ol>
+    <strong>Step 4 — Enable auto-scan &amp; reminders</strong>
+    <ol style="margin:6px 0 10px 18px;">
+      <li>Enter your email in the <em>Reminders</em> field — you'll get a summary email on the 5th if any tenants haven't paid.</li>
+      <li>The dashboard auto-scans Gmail on days 1–5 of each month (after you sign in).</li>
+      <li>Payment detection is automatic based on the payment method (Venmo, Zelle, PayPal, etc.) or the sender/subject in your sheet.</li>
+    </ol>
+    <strong>Sheet column layout:</strong> A=Address · C=Renter Name · G=Paid To (filter: "Eric") · H=Rent Amount · I=Your Notification Email · J=Tenant Sender Email (optional override) · K=Email Subject keyword (optional) · L=Payment Method<br>
+    <strong>Payment auto-detection (from address → subject searched):</strong><br>
+    Venmo: <code>venmo@venmo.com</code> → "<em>FirstName</em> paid you"<br>
+    Zelle: <code>no.reply.alerts@chase.co</code> → "You received money with Zelle"<br>
+    PayPal: <code>service@paypal.com</code> → "<em>FirstName</em> sent you"<br>
+    Cash App: <code>cash@square.com</code><br>
+    Override either by filling Col J (sender) or Col K (subject keyword) in your sheet.
+  </div>
+
+  <!-- Rent stats row -->
+  <div class="rent-stats" id="rentStats" style="display:none;">
+    <div class="rent-stat-card">
+      <div class="label">Total Tenants</div>
+      <div class="value" id="rentStatTotal">—</div>
+    </div>
+    <div class="rent-stat-card">
+      <div class="label">Paid This Month</div>
+      <div class="value green" id="rentStatPaid">—</div>
+    </div>
+    <div class="rent-stat-card">
+      <div class="label">Pending / Late</div>
+      <div class="value orange" id="rentStatPending">—</div>
+    </div>
+    <div class="rent-stat-card">
+      <div class="label">Monthly Total</div>
+      <div class="value" id="rentStatAmount">—</div>
+    </div>
+  </div>
+
+  <!-- Rent table -->
+  <div class="rent-table-wrap">
+    <div id="rentTableContent">
+      <div class="rent-empty">
+        <div class="icon">🏠</div>
+        <p>Enter your <strong>Sheet ID</strong> and <strong>API Key</strong> above, then click <strong>Load Sheet</strong>.<br>Sign in with Google to enable automatic payment detection from Gmail.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     2026 INCOME STATEMENT
+════════════════════════════════════════════════════════════ -->
+<section class="income-section">
+  <div class="income-section-header">
+    <div class="income-section-title">📊 2026 Income Statement</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-outline btn-sm" onclick="toggleAutoRules()" title="Set up Gmail auto-rules">⚙️ Auto-Rules</button>
+      <button class="btn btn-outline btn-sm" onclick="gmailScanForwardedEmails()"
+        title="Scan Gmail for forwarded emails tagged [REVENUE] or [EXPENSE]">
+        📧 Process Forwarded Emails
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="toggleForwardHelp()" title="How to use email forwarding">ℹ️</button>
+    </div>
+  </div>
+
+  <!-- Auto-Rules panel (collapsible) -->
+  <div id="autoRulesPanel" style="display:none;" class="auto-rules-panel">
+    <h4>⚙️ Gmail Auto-Rules</h4>
+    <p>Set up Gmail filters so emails are auto-labeled and picked up automatically on every scan — no manual forwarding needed.<br>
+    Click <strong>Create in Gmail →</strong> for each rule, complete the 2-click filter creation in Gmail, then scan as usual.</p>
+
+    <div class="rules-divider">Pre-built rules</div>
+    <div class="rules-grid" id="rulesGrid"></div>
+
+    <div class="rules-divider">Custom rule</div>
+    <div class="rules-custom-row">
+      <input id="customRuleFrom" placeholder="From (e.g. noreply@vrbo.com)" style="width:200px;">
+      <input id="customRuleSubject" placeholder="Subject contains (optional)" style="width:180px;">
+      <select id="customRuleType" style="width:100px;">
+        <option value="revenue">Revenue</option>
+        <option value="expense">Expense</option>
+      </select>
+      <button class="rule-open-btn" onclick="openCustomGmailFilter()">Create Custom →</button>
+    </div>
+
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #bbf7d0;font-size:11px;color:#166534;line-height:1.7;">
+      <strong>How it works:</strong> Gmail will auto-label matching emails as <code style="background:#dcfce7;padding:1px 5px;border-radius:3px;">dashboard-revenue</code> or <code style="background:#fee2e2;padding:1px 5px;border-radius:3px;">dashboard-expense</code>.
+      The dashboard scans these labels on every ⚡ Scan Now and extracts amounts from the email body automatically.
+      If an amount can't be found, it'll appear in a "⚠️ Needs Review" banner for you to fill in.
+    </div>
+  </div>
+
+  <!-- Forwarded-email help (collapsible) -->
+  <div id="forwardHelp" style="display:none;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.8;">
+    <strong>📧 How to log items by forwarding email</strong><br>
+    Forward any email to yourself (your Gmail account) and change the subject to include a tag and dollar amount:<br>
+    <code style="background:#dbeafe;padding:2px 6px;border-radius:4px;">[REVENUE] Airbnb payout $3,200</code> → added to Revenue panel<br>
+    <code style="background:#dbeafe;padding:2px 6px;border-radius:4px;">[EXPENSE] Home Depot supplies $45.00</code> → added to Expense Tracker<br>
+    <br>
+    Then click <strong>📧 Process Forwarded Emails</strong> (or <strong>⚡ Scan Now</strong>) and the app will find the email, extract the amount and description, and add it automatically. Each email is only processed once.
+  </div>
+
+  <!-- YTD Summary bar -->
+  <div class="income-summary-card">
+    <div class="income-summary-item">
+      <div class="label">YTD Revenue</div>
+      <div class="value income-positive" id="summaryRevenue">—</div>
+    </div>
+    <div class="income-summary-item">
+      <div class="label">YTD Expenses</div>
+      <div class="value income-negative" id="summaryExpenses">—</div>
+    </div>
+    <div class="income-summary-item">
+      <div class="label">Net Income</div>
+      <div class="value" id="summaryNet">—</div>
+    </div>
+  </div>
+
+  <!-- Two-column: Revenue | Expenses -->
+  <div class="income-grid">
+    <!-- Revenue -->
+    <div class="income-card">
+      <div class="income-card-header">
+        <h3>💰 Revenue</h3>
+        <span class="income-card-total income-positive" id="revCardTotal">—</span>
+      </div>
+      <div id="pendingRevBanner"></div>
+      <div id="incomeRevenueContent"></div>
+    </div>
+    <!-- Expenses -->
+    <div class="income-card">
+      <div class="income-card-header">
+        <h3>💸 Expenses</h3>
+        <span class="income-card-total income-negative" id="expCardTotal">—</span>
+      </div>
+      <div id="pendingExpBanner"></div>
+      <div id="incomeExpenseContent"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     EXPENSE TRACKER
+════════════════════════════════════════════════════════════ -->
+<section class="expense-section">
+  <h2>🧾 Expense Tracker</h2>
+
+  <!-- Add expense form -->
+  <div class="expense-form">
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="expDate" />
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="expName" placeholder="e.g. Paper towels" style="width:180px;" />
+    </div>
+    <div class="field">
+      <label>Vendor</label>
+      <input type="text" id="expVendor" placeholder="e.g. Amazon" style="width:130px;" />
+    </div>
+    <div class="field">
+      <label>Amount ($)</label>
+      <input type="number" id="expAmount" placeholder="0.00" min="0" step="0.01" style="width:100px;" />
+    </div>
+    <div class="field">
+      <label>Paid With</label>
+      <select id="expPayment">
+        <option value="">— Select —</option>
+        <option>Amazon CC</option>
+        <option>Sapphire CC</option>
+        <option>Business CC</option>
+        <option>Cash</option>
+        <option>Venmo</option>
+        <option>Fidelity Checking</option>
+        <option>Chase Checking</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="addExpense()" style="height:34px;align-self:flex-end;">+ Add</button>
+  </div>
+
+  <!-- Expense list -->
+  <div class="expense-list">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Vendor</th>
+          <th>Paid With</th>
+          <th style="text-align:right;">Amount</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="expenseTableBody"></tbody>
+    </table>
+    <div id="expenseEmpty" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No expenses added yet.</div>
+  </div>
+</section>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let bookings = [];
+let assignments    = JSON.parse(localStorage.getItem('assignments')    || '{}');
+let notes          = JSON.parse(localStorage.getItem('notes')          || '{}');
+let cleaningDates  = JSON.parse(localStorage.getItem('cleaningDates')  || '{}'); // uid -> 'YYYY-MM-DD'
+let cleaningCosts  = JSON.parse(localStorage.getItem('cleaningCosts')  || '{}'); // uid -> number
+
+function saveState() {
+  localStorage.setItem('assignments',   JSON.stringify(assignments));
+  localStorage.setItem('notes',         JSON.stringify(notes));
+  localStorage.setItem('cleaningDates', JSON.stringify(cleaningDates));
+  localStorage.setItem('cleaningCosts', JSON.stringify(cleaningCosts));
+}
+
+function saveCleaningCost(uid, val) {
+  const n = parseFloat(val);
+  if (!isNaN(n) && n > 0) cleaningCosts[uid] = n;
+  else delete cleaningCosts[uid];
+  saveState();
+  renderIncomeStatement();  // keep income statement in sync
+}
+
+// Returns the cleaning date for a booking: custom override or default checkout date
+function cleaningDate(b) {
+  if (cleaningDates[b.uid]) return new Date(cleaningDates[b.uid] + 'T12:00:00');
+  return b.end;
+}
+
+// Returns YYYY-MM-DD string for an input[type=date] value
+function toInputDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function saveCleaningDate(uid, val) {
+  if (val) cleaningDates[uid] = val;
+  else delete cleaningDates[uid];
+  saveState();
+  renderStats();
+  renderCleanerSummary();
+}
+
+// ── Cleaner contact info ──────────────────────────────────────────────────────
+const CLEANERS = {
+  Karla:     { phone: '+15107986961', display: '+1 (510) 798-6961' },
+  Priscilla: { phone: '+17326214778', display: '+1 (732) 621-4778' },
+};
+
+// ── iCal parsing ──────────────────────────────────────────────────────────────
+async function loadIcal(silent) {
+  const url = document.getElementById('icalUrl').value.trim();
+  if (!url) { showToast('Please paste an iCal URL first.'); return; }
+  // Save URL for auto-reload next time
+  localStorage.setItem('icalUrl', url);
+  if (!silent) showLoading();
+  try {
+    // Use Netlify function proxy to fetch the iCal (avoids CORS)
+    const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) throw new Error('Failed to fetch');
+    const text = await resp.text();
+    bookings = parseIcal(text);
+    renderAll();
+    if (!silent) showToast(`✅ Synced ${bookings.length} bookings`);
+  } catch (e) {
+    showToast('❌ Could not load iCal. Check URL or try Demo Data.');
+    console.error(e);
+    hideLoading();
+  }
+}
+
+function parseIcal(text) {
+  const events = [];
+  // Unfold continuation lines (lines starting with space or tab) — strip the whitespace character too
+  const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+  const lines = unfolded.split(/\r\n|\n/);
+  let cur = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = {}; }
+    else if (line === 'END:VEVENT' && cur) {
+      // Skip "Not available" blocks
+      if (cur.start && cur.end && cur.summary && !cur.summary.toLowerCase().includes('not available')) {
+        // Extract reservation code from description URL
+        const resMatch = cur.description && cur.description.match(/details\/([A-Z0-9]+)/);
+        cur.resCode = resMatch ? resMatch[1] : null;
+        // Extract last 4 digits of phone
+        const phoneMatch = cur.description && cur.description.match(/Last 4 Digits\):\s*(\d{4})/);
+        cur.phone4 = phoneMatch ? phoneMatch[1] : null;
+        events.push(cur);
+      }
+      cur = null;
+    } else if (cur) {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx === -1) continue;
+      const key = line.slice(0, colonIdx);
+      const val = line.slice(colonIdx + 1).trim();
+      const k = key.split(';')[0];
+      if (k === 'DTSTART') cur.start = parseIcalDate(val);
+      else if (k === 'DTEND') cur.end = parseIcalDate(val);
+      else if (k === 'SUMMARY') cur.summary = val;
+      else if (k === 'DESCRIPTION') cur.description = val.replace(/\\n/g, '\n');
+      else if (k === 'UID') cur.uid = val;
+    }
+  }
+  return events.sort((a, b) => a.start - b.start);
+}
+
+function parseIcalDate(str) {
+  // YYYYMMDD or YYYYMMDDTHHmmssZ
+  const s = str.replace(/T.*$/, '');
+  return new Date(s.slice(0,4), parseInt(s.slice(4,6))-1, parseInt(s.slice(6,8)));
+}
+
+// ── Demo Data ────────────────────────────────────────────────────────────────
+function loadDemoData() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = (offset) => { const x = new Date(today); x.setDate(x.getDate()+offset); return x; };
+  bookings = [
+    { uid:'b1', summary:'Sarah & James Thompson', start:d(-2), end:d(0), description:'2 guests · 2 nights' },
+    { uid:'b2', summary:'Michael Chen',           start:d(2),  end:d(5), description:'1 guest · 3 nights' },
+    { uid:'b3', summary:'Emily Rodriguez',         start:d(7),  end:d(10),description:'3 guests · 3 nights' },
+    { uid:'b4', summary:'David & Lisa Park',       start:d(12), end:d(14),description:'2 guests · 2 nights' },
+    { uid:'b5', summary:'Booking (Airbnb)',         start:d(18), end:d(21),description:'2 guests · 3 nights' },
+    { uid:'b6', summary:'Hiroshi Tanaka',           start:d(23), end:d(26),description:'1 guest · 3 nights' },
+  ];
+  // Pre-assign some
+  assignments = { b1:'Karla', b2:'Priscilla', b3:'Karla' };
+  notes = { b2:'Guest mentioned early check-in request', b4:'Repeat guest, prefers extra towels' };
+  renderAll();
+  showToast('📋 Demo data loaded');
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderStats();
+  renderCleanerSummary();
+  renderBookingsTab();
+  renderCleaningTab();
+  renderGuestsTab();
+  renderIncomeStatement();
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const in30 = new Date(today); in30.setDate(in30.getDate()+30);
+  const upcoming = bookings.filter(b => b.start >= today && b.start <= in30);
+  document.getElementById('statUpcoming').textContent = upcoming.length;
+
+  const next = bookings.find(b => b.start >= today);
+  if (next) {
+    document.getElementById('statNextCheckin').textContent = fmtDate(next.start);
+    // Use plain name for stat card (no HTML spans)
+    document.getElementById('statNextGuest').textContent = guestNamePlain(next);
+  }
+
+  const cleanings = bookings.filter(b => assignments[b.uid]);
+  const unassigned = bookings.filter(b => b.end >= today && !assignments[b.uid]);
+  document.getElementById('statCleanings').textContent = cleanings.length;
+  document.getElementById('statUnassigned').textContent = unassigned.length;
+}
+
+// ── Cleaner summary ───────────────────────────────────────────────────────────
+function renderCleanerSummary() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  for (const name of ['Karla', 'Priscilla']) {
+    const id = name.toLowerCase() + 'List';
+    const mine = bookings
+      .filter(b => assignments[b.uid] === name && b.end >= today)
+      .slice(0, 6);
+    const el = document.getElementById(id);
+    if (mine.length === 0) {
+      el.innerHTML = '<li><span class="guest-name">No upcoming cleanings</span></li>';
+    } else {
+      el.innerHTML = mine.map(b => {
+        const cd = cleaningDate(b);
+        const isCustom = cleaningDates[b.uid] && cleaningDates[b.uid] !== toInputDate(b.end);
+        return `<li>
+          <span class="date">${fmtDate(cd)}${isCustom ? ' <span style="color:var(--unassigned);font-size:10px;">(custom)</span>' : ''}</span>
+          <span class="guest-name">after ${guestNamePlain(b)}</span>
+        </li>`;
+      }).join('');
+    }
+  }
+}
+
+// ── Bookings Tab ──────────────────────────────────────────────────────────────
+function renderBookingsTab() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (!bookings.length) return;
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Guest</th>
+          <th>Check-In</th>
+          <th>Check-Out</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Cleaner</th>
+          <th>Cleaner Arrives</th>
+          <th>Notes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bookings.map((b, i) => {
+          const nights = Math.round((b.end - b.start) / 86400000);
+          const status = statusBadge(b, today);
+          // The cleaner for THIS booking's check-in is whoever is assigned to the previous booking's checkout
+          const prevBooking = bookings[i - 1];
+          const prevUid = prevBooking ? prevBooking.uid : null;
+          const cleanerVal = prevUid ? (assignments[prevUid] || '') : '';
+          const cleanerDropdown = `
+            <select class="cleaner-dropdown ${cleanerVal === 'Karla' ? 'sel-karla' : cleanerVal === 'Priscilla' ? 'sel-priscilla' : 'sel-unassigned'}"
+              onchange="assignFromBookingsTab('${prevUid}', this.value, this)"
+              ${!prevUid ? 'disabled title="No prior checkout to assign"' : ''}>
+              <option value="">— Unassigned</option>
+              <option value="Karla"     ${cleanerVal === 'Karla'     ? 'selected' : ''}>Karla</option>
+              <option value="Priscilla" ${cleanerVal === 'Priscilla' ? 'selected' : ''}>Priscilla</option>
+            </select>`;
+          // Cleaner arrival date — keyed on prevUid (the checkout being cleaned), defaults to b.start (check-in day)
+          const arrivalDefaultDate = toInputDate(b.start);
+          const arrivalCurrentDate = prevUid ? (cleaningDates[prevUid] || arrivalDefaultDate) : arrivalDefaultDate;
+          const arrivalIsCustom = prevUid && cleaningDates[prevUid] && cleaningDates[prevUid] !== toInputDate(bookings[i-1].end);
+          const arrivalDateCell = prevUid ? `
+            <input type="date" class="date-input ${arrivalIsCustom ? 'date-custom' : ''}"
+              value="${arrivalCurrentDate}"
+              data-default="${toInputDate(bookings[i-1].end)}"
+              onchange="saveCleaningDate('${prevUid}', this.value); this.classList.toggle('date-custom', this.value !== this.dataset.default);"
+              title="${arrivalIsCustom ? 'Custom date (checkout is ' + fmtDate(bookings[i-1].end) + ')' : 'Defaults to checkout date — click to change'}">
+            ${arrivalIsCustom ? `<span class="date-reset" onclick="saveCleaningDate('${prevUid}',''); this.previousElementSibling.value='${toInputDate(bookings[i-1].end)}'; this.previousElementSibling.classList.remove('date-custom'); this.remove();" title="Reset to checkout date">↺</span>` : ''}
+          ` : `<span style="color:var(--muted);font-size:12px;">—</span>`;
+          return `<tr>
+            <td><strong>${guestName(b)}</strong></td>
+            <td>${fmtDate(b.start)}</td>
+            <td>${fmtDate(b.end)}</td>
+            <td>${nights} night${nights!==1?'s':''}</td>
+            <td>${status}</td>
+            <td>${cleanerDropdown}</td>
+            <td style="white-space:nowrap;">${arrivalDateCell}</td>
+            <td>
+              <textarea class="note-input" rows="1" placeholder="Add note…"
+                onblur="saveNote('${b.uid}', this.value)"
+                >${notes[b.uid] || ''}</textarea>
+            </td>
+            <td style="white-space:nowrap;">
+              ${b.resCode ? `<a class="guest-link" href="https://www.airbnb.com/hosting/reservations/details/${b.resCode}" target="_blank">📋 Details ↗</a>
+              <br><a class="guest-link" href="https://www.airbnb.com/hosting/inbox" target="_blank" style="margin-top:3px;display:inline-flex;">✉️ Inbox ↗</a>` :
+              `<a class="guest-link" href="https://www.airbnb.com/hosting/inbox" target="_blank">✉️ Inbox ↗</a>`}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  document.getElementById('bookingsContent').innerHTML = html;
+}
+
+// ── Cleaning Tab ──────────────────────────────────────────────────────────────
+function renderCleaningTab() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (!bookings.length) return;
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cleaning Date</th>
+          <th>After Guest</th>
+          <th>Before Guest</th>
+          <th>Window</th>
+          <th>Assigned To</th>
+          <th>Cost</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bookings.map((b, i) => {
+          const nextBooking = bookings[i+1];
+          const cDate = cleaningDate(b);
+          const defaultDate = toInputDate(b.end);
+          const currentDate = cleaningDates[b.uid] || defaultDate;
+          const isCustom = cleaningDates[b.uid] && cleaningDates[b.uid] !== defaultDate;
+          const windowHours = nextBooking
+            ? Math.round((nextBooking.start - cDate) / 3600000)
+            : null;
+          const assigned = assignments[b.uid];
+          return `<tr>
+            <td>
+              <input type="date" class="date-input ${isCustom ? 'date-custom' : ''}"
+                value="${currentDate}"
+                data-default="${defaultDate}"
+                onchange="saveCleaningDate('${b.uid}', this.value); this.classList.toggle('date-custom', this.value !== this.dataset.default);"
+                title="${isCustom ? 'Custom date (checkout is ' + fmtDate(b.end) + ')' : 'Defaults to checkout date'}">
+              ${isCustom ? `<span class="date-reset" onclick="saveCleaningDate('${b.uid}', ''); document.querySelectorAll('.date-input').forEach((el,idx) => { if(idx===${i}) { el.value='${defaultDate}'; el.classList.remove('date-custom'); }})" title="Reset to checkout date">↺</span>` : ''}
+            </td>
+            <td>${guestNamePlain(b)}</td>
+            <td>${nextBooking ? guestNamePlain(nextBooking) : '<span style="color:var(--muted)">—</span>'}</td>
+            <td>${windowHours !== null ? `${windowHours}h gap` : '<span style="color:var(--muted)">—</span>'}</td>
+            <td>
+              <div class="cleaner-select">
+                <button class="cleaner-btn karla ${assigned==='Karla'?'active':''}"
+                  onclick="assign('${b.uid}','Karla')">Karla</button>
+                <button class="cleaner-btn priscilla ${assigned==='Priscilla'?'active':''}"
+                  onclick="assign('${b.uid}','Priscilla')">Priscilla</button>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="color:var(--muted);font-size:13px;">$</span>
+                <input type="number" min="0" step="1" placeholder="—"
+                  style="width:70px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;"
+                  value="${cleaningCosts[b.uid] || ''}"
+                  onchange="saveCleaningCost('${b.uid}', this.value)"
+                  title="Enter cleaning cost paid to ${assigned||'cleaner'}">
+              </div>
+            </td>
+            <td>
+              ${assigned ? `<button class="btn btn-sm ${assigned==='Karla'?'btn-karla':'btn-priscilla'}"
+                onclick="messageModal('${assigned}', '${CLEANERS[assigned].phone}', '${b.uid}')">
+                &#128172; Message</button>` : '<span style="color:var(--muted);font-size:12px;">assign first</span>'}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  document.getElementById('cleaningContent').innerHTML = html;
+}
+
+// ── Guests Tab ────────────────────────────────────────────────────────────────
+function renderGuestsTab() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (!bookings.length) return;
+  const html = `
+    <div style="padding:16px;">
+      <div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:12px 16px;font-size:13px;margin-bottom:16px;color:#78350f;">
+        ℹ️ <strong>Note:</strong> Airbnb restricts direct API access to guest messages. Use the links below to open each guest's conversation directly in the Airbnb Hosting inbox.
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Guest</th>
+          <th>Check-In</th>
+          <th>Check-Out</th>
+          <th>Status</th>
+          <th>Your Notes</th>
+          <th>Open Conversation</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bookings.map(b => {
+          const status = statusBadge(b, today);
+          return `<tr>
+            <td><strong>${guestName(b)}</strong></td>
+            <td>${fmtDate(b.start)}</td>
+            <td>${fmtDate(b.end)}</td>
+            <td>${status}</td>
+            <td>
+              <textarea class="note-input" rows="1" placeholder="Notes about this guest…"
+                onblur="saveNote('${b.uid}', this.value)"
+                >${notes[b.uid] || ''}</textarea>
+            </td>
+            <td style="white-space:nowrap;">
+              ${b.resCode ? `<a class="guest-link" href="https://www.airbnb.com/hosting/reservations/details/${b.resCode}" target="_blank">📋 Reservation ↗</a>
+              <br><a class="guest-link" href="https://www.airbnb.com/hosting/inbox" target="_blank" style="margin-top:3px;display:inline-flex;">✉️ Inbox ↗</a>` :
+              `<a class="guest-link" href="https://www.airbnb.com/hosting/inbox" target="_blank">✉️ Inbox ↗</a>`}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  document.getElementById('guestsContent').innerHTML = html;
+}
+
+// ── Assignment ────────────────────────────────────────────────────────────────
+function assign(uid, cleaner) {
+  if (assignments[uid] === cleaner) {
+    delete assignments[uid]; // toggle off
+  } else {
+    assignments[uid] = cleaner;
+  }
+  saveState();
+  renderAll();
+}
+
+// Called from the Cleaner dropdown in the Bookings tab
+// uid here is the PREVIOUS booking's uid (the checkout being cleaned)
+function assignFromBookingsTab(uid, cleaner, selectEl) {
+  if (!uid || uid === 'null') return;
+  if (cleaner === '') {
+    delete assignments[uid];
+  } else {
+    assignments[uid] = cleaner;
+  }
+  saveState();
+  // Update dropdown colour without full re-render (avoids losing focus)
+  selectEl.className = `cleaner-dropdown ${cleaner === 'Karla' ? 'sel-karla' : cleaner === 'Priscilla' ? 'sel-priscilla' : 'sel-unassigned'}`;
+  // Re-render stats + cleaner summary cards + cleaning tab silently
+  renderStats();
+  renderCleanerSummary();
+  renderCleaningTab();
+}
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+function saveNote(uid, value) {
+  notes[uid] = value;
+  saveState();
+}
+
+// ── Message Modal ─────────────────────────────────────────────────────────────
+let currentRecipient = null;
+
+function messageModal(name, phone, bookingUid) {
+  currentRecipient = { name, phone };
+  document.getElementById('modalName').textContent = name;
+  document.getElementById('modalNumber').textContent = CLEANERS[name]?.display || phone;
+
+  // Pre-fill message if booking provided
+  let prefill = '';
+  if (bookingUid) {
+    const b = bookings.find(x => x.uid === bookingUid);
+    if (b) {
+      prefill = `Hi ${name}! Can you clean on ${fmtDate(cleaningDate(b))} after ${guestNamePlain(b)} checks out? Please confirm when you're available. Thanks!`;
+    }
+  }
+  document.getElementById('msgText').value = prefill;
+  document.getElementById('msgModal').classList.add('open');
+  setTimeout(() => document.getElementById('msgText').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('msgModal').classList.remove('open');
+  currentRecipient = null;
+}
+
+function sendMessage() {
+  if (!currentRecipient) return;
+  const text = document.getElementById('msgText').value.trim();
+  if (!text) { showToast('Please type a message.'); return; }
+
+  // Build sms: URI — opens Messages app with pre-filled message
+  const smsUri = `sms:${currentRecipient.phone}&body=${encodeURIComponent(text)}`;
+  window.location.href = smsUri;
+
+  closeModal();
+  showToast(`📱 Opening Messages to contact ${currentRecipient.name}…`);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function guestName(b) {
+  // Airbnb iCal hides guest names — show reservation code + phone last-4
+  if (b.resCode) {
+    return `<span style="font-family:monospace;font-size:12px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${b.resCode}</span>${b.phone4 ? ` <span style="color:var(--muted);font-size:11px;">·&nbsp;…${b.phone4}</span>` : ''}`;
+  }
+  return b.summary || 'Guest';
+}
+
+function guestNamePlain(b) {
+  if (b.resCode) return b.resCode;
+  return b.summary || 'Guest';
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function statusBadge(b, today) {
+  if (b.end < today) return '<span class="badge badge-checkout">Checked out</span>';
+  if (b.start <= today && b.end >= today) return '<span class="badge badge-staying">Staying now</span>';
+  const diff = Math.round((b.start - today) / 86400000);
+  if (diff === 0) return '<span class="badge badge-checkin">Check-in today</span>';
+  if (diff <= 3) return `<span class="badge badge-checkin">In ${diff}d</span>`;
+  return `<span class="badge badge-future">In ${diff}d</span>`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showLoading() {
+  document.getElementById('bookingsContent').innerHTML =
+    '<div class="loading"><div class="spinner"></div><p>Loading bookings…</p></div>';
+}
+function hideLoading() {
+  document.getElementById('bookingsContent').innerHTML =
+    '<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load. Try again or use Demo Data.</p></div>';
+}
+
+// Close modal on overlay click
+document.getElementById('msgModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// TENANT RENT TRACKER
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Rent state ───────────────────────────────────────────────────────────────
+let tenants = [];
+// rentPayments: { "tenantId-YYYY-MM": "paid"|"pending"|"unpaid"|"na" }
+let rentPayments = JSON.parse(localStorage.getItem('rentPayments') || '{}');
+let gmailToken = null;   // OAuth access token once signed in
+
+function saveRentState() {
+  localStorage.setItem('rentPayments', JSON.stringify(rentPayments));
+  if (tenants.length) localStorage.setItem('rentTenants', JSON.stringify(tenants));
+}
+
+// ── Month helpers ─────────────────────────────────────────────────────────────
+// Rolling window: 2 months past + current month + 3 months future = 6 columns
+function rentMonths() {
+  const months = [];
+  const now = new Date();
+  const PAST = 2, FUTURE = 3;
+  for (let i = -PAST; i <= FUTURE; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    months.push({
+      label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      isCurrent: i === 0,
+      isFuture: i > 0,
+      isPast: i < 0,
+      year: d.getFullYear(),
+      month: d.getMonth(),  // 0-based
+    });
+  }
+  return months;
+}
+
+// ── Google Sheets API v4 ──────────────────────────────────────────────────────
+async function rentLoadSheet() {
+  const sheetId  = document.getElementById('sheetId').value.trim();
+  const apiKey   = document.getElementById('sheetsApiKey').value.trim();
+  if (!sheetId)  { showToast('Please enter the Google Sheet ID.'); return; }
+  if (!apiKey)   { showToast('Please enter a Google API Key.'); return; }
+
+  localStorage.setItem('rentSheetId',  sheetId);
+  localStorage.setItem('rentApiKey',   apiKey);
+
+  showToast('⏳ Loading sheet…');
+  try {
+    // Fetch columns A, C, G, H, I, J, K, L  (rows 2 onward — row 1 = header)
+    const range = encodeURIComponent('A2:L200');
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    tenants = parseSheetRows(data.values || []);
+    if (!tenants.length) {
+      showToast('⚠️ No rows found where Column G contains "Eric".');
+    } else {
+      showToast(`✅ Loaded ${tenants.length} tenant(s) from sheet`);
+    }
+    saveRentState();
+    renderRentTracker();
+  } catch(e) {
+    showToast(`❌ Sheet error: ${e.message}`);
+    console.error(e);
+  }
+}
+
+function parseSheetRows(rows) {
+  const results = [];
+  rows.forEach((cols, i) => {
+    const paidTo = (cols[6] || '').trim();           // Col G (index 6)
+    if (!paidTo.toLowerCase().includes('eric')) return;
+
+    const address     = (cols[0]  || '').trim();    // Col A
+    const renterName  = (cols[2]  || '').trim();    // Col C
+    const rentAmount  = (cols[7]  || '').trim();    // Col H
+    const notifEmail  = (cols[8]  || '').trim();    // Col I
+    const senderEmail = (cols[9]  || '').trim();    // Col J
+    const emailSubj   = (cols[10] || '').trim();    // Col K
+    const payMethod   = (cols[11] || '').trim();    // Col L
+
+    if (!renterName && !address) return;
+    results.push({
+      id: `t${i}`,
+      name: renterName || '(unnamed)',
+      address, amount: rentAmount,
+      notifEmail, senderEmail, emailSubj, payMethod,
+    });
+  });
+  return results;
+}
+
+async function rentRefresh() {
+  await rentLoadSheet();
+  if (gmailToken) await gmailScanAll();
+}
+
+// ── Gmail OAuth ───────────────────────────────────────────────────────────────
+const GMAIL_SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send';
+let gmailTokenClient = null;
+let gmailTokenExpiry = 0;  // epoch ms when token expires
+
+function initGmailClient(clientId, afterAuth) {
+  gmailTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: GMAIL_SCOPES,
+    callback: (tokenResp) => {
+      if (tokenResp.error) {
+        showToast('❌ Gmail sign-in failed: ' + tokenResp.error);
+        setGmailStatus('❌ Auth failed — try again', 'var(--red)');
+        return;
+      }
+      gmailToken = tokenResp.access_token;
+      gmailTokenExpiry = Date.now() + ((tokenResp.expires_in || 3600) - 300) * 1000;
+      setGmailStatus('✅ Signed in', '#059669');
+      if (afterAuth) afterAuth();
+      // Always pull Airbnb payouts after fresh auth
+      gmailFetchAirbnbPayouts();
+    },
+  });
+  return gmailTokenClient;
+}
+
+function gmailSignIn() {
+  const clientId = document.getElementById('gmailClientId').value.trim();
+  if (!clientId) { showToast('Please enter your OAuth Client ID first.'); return; }
+  localStorage.setItem('gmailClientId', clientId);
+  if (typeof google === 'undefined' || !google.accounts) {
+    showToast('❌ Google Identity library not loaded. Check internet connection.');
+    return;
+  }
+  initGmailClient(clientId, () => {
+    showToast('✅ Gmail connected — scanning emails…');
+    gmailScanAll();
+  }).requestAccessToken();
+}
+
+// One-click: scan now if token valid, otherwise re-authenticate first
+function gmailSignAndScan() {
+  // Token still valid — skip popup and scan immediately
+  if (gmailToken && Date.now() < gmailTokenExpiry) {
+    showToast('⚡ Scanning Gmail…');
+    gmailScanAll();
+    return;
+  }
+  const clientId = document.getElementById('gmailClientId').value.trim();
+  if (!clientId) { showToast('Please enter your OAuth Client ID first.'); return; }
+  if (typeof google === 'undefined' || !google.accounts) {
+    showToast('❌ Google Identity library not loaded. Check internet connection.');
+    return;
+  }
+  showToast('🔑 Opening Google sign-in…');
+  initGmailClient(clientId, () => {
+    showToast('✅ Signed in — scanning all months now…');
+    gmailScanAll();
+  }).requestAccessToken();
+}
+
+// Silently refresh token if expired, or prompt re-auth
+async function ensureGmailToken() {
+  if (gmailToken && Date.now() < gmailTokenExpiry) return true;
+  if (!gmailTokenClient) {
+    const clientId = document.getElementById('gmailClientId').value.trim();
+    if (!clientId || typeof google === 'undefined') return false;
+    gmailTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: GMAIL_SCOPES,
+      callback: (tokenResp) => {
+        if (!tokenResp.error) {
+          gmailToken = tokenResp.access_token;
+          gmailTokenExpiry = Date.now() + ((tokenResp.expires_in || 3600) - 300) * 1000;
+          setGmailStatus('✅ Signed in', '#059669');
+        }
+      },
+    });
+  }
+  // Try silent (prompt:'none') first — will fail if user hasn't consented yet
+  return new Promise(resolve => {
+    const prevCb = gmailTokenClient.callback;
+    gmailTokenClient.callback = (resp) => {
+      prevCb(resp);
+      resolve(!resp.error && !!gmailToken);
+      gmailTokenClient.callback = prevCb;
+    };
+    gmailTokenClient.requestAccessToken({ prompt: '' });
+  });
+}
+
+function setGmailStatus(msg, color) {
+  const el = document.getElementById('gmailStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || 'var(--muted)';
+  const authBtn = document.getElementById('gmailAuthBtn');
+  const scanBtn = document.getElementById('gmailScanBtn');
+  if (msg.startsWith('✅')) {
+    if (authBtn) authBtn.textContent = '🔄 Re-authenticate';
+    if (scanBtn) scanBtn.textContent = '⚡ Scan Now';
+  } else if (msg.startsWith('❌') || msg.startsWith('⚠️')) {
+    if (authBtn) authBtn.textContent = '🔑 Sign in with Google';
+    if (scanBtn) scanBtn.textContent = '⚡ Sign in & Scan Now';
+  }
+}
+
+// ── Payment method → Gmail sender/subject lookup ──────────────────────────────
+// Col J (senderEmail) and Col K (emailSubj) in the sheet always take precedence.
+// Fallback rules below are used when those columns are blank.
+//
+// Venmo:  from venmo@venmo.com,           subject "{Full Name} paid you $X.XX"  → search "paid you"
+// Zelle:  from no.reply.alerts@chase.co,  subject "You received money with Zelle®"
+// PayPal: from service@paypal.com,        subject "{Full Name} sent you $X.XX"  → search "sent you"
+const PAYMENT_METHOD_EMAILS = {
+  // Venmo actual subject: "Stefan Hajduk paid you $1,268.00" — use keyword only, from: is specific enough
+  'venmo':        { from: 'venmo@venmo.com',              subjectTemplate: 'paid you',                      subjectHints: ['paid you'] },
+  'zelle':        { from: 'no.reply.alerts@chase.co',     subjectTemplate: 'You received money with Zelle', subjectHints: ['You received money with Zelle', 'received money with zelle'] },
+  // PayPal actual subject: "Name sent you $X.XX" — use keyword only
+  'paypal':       { from: 'service@paypal.com',           subjectTemplate: 'sent you',                      subjectHints: ['sent you'] },
+  'cashapp':      { from: 'cash@square.com',              subjectTemplate: null,                            subjectHints: ['paid you', 'payment received'] },
+  'apple pay':    { from: null,                           subjectTemplate: null,                            subjectHints: [] },
+  'bank transfer':{ from: null,                           subjectTemplate: null,                            subjectHints: [] },
+  'check':        { from: null,                           subjectTemplate: null,                            subjectHints: [] },
+  'wire':         { from: null,                           subjectTemplate: null,                            subjectHints: [] },
+};
+
+// Resolve the subject template for a tenant, substituting {first} with first name
+function resolveSubjectTemplate(template, tenantName) {
+  if (!template) return null;
+  const firstName = (tenantName || '').split(/\s+/)[0];
+  return template.replace('{first}', firstName);
+}
+
+// Strip ALL placeholder tokens from sheet subject values — {Name}, {amount}, etc.
+// We don't substitute the name because real emails use the FULL name ("Stefan Hajduk paid you")
+// not just first name, so we search by keyword only (e.g. "paid you").
+function cleanSubjectForSearch(raw) {
+  if (!raw) return null;
+  let s = raw;
+  // Remove ALL {placeholder} tokens (Name, First, amount, date, etc.)
+  s = s.replace(/\{[^}]+\}/g, '').trim();
+  // Collapse multiple spaces left by removed tokens
+  s = s.replace(/\s{2,}/g, ' ').trim();
+  return s || null;
+}
+
+function getPaymentSearchParams(tenant) {
+  // 1. Sheet col J (senderEmail) takes full precedence for the "from" filter
+  if (tenant.senderEmail) {
+    // Col K subject: clean any {Name}/{amount} tokens before using as Gmail query
+    const rawSubj = tenant.emailSubj || null;
+    const subjectHint = rawSubj ? cleanSubjectForSearch(rawSubj) : null;
+    return {
+      from: tenant.senderEmail,
+      subjectHint,
+    };
+  }
+
+  // 2. Auto-detect from payment method
+  const method = (tenant.payMethod || '').toLowerCase().trim();
+  for (const [key, cfg] of Object.entries(PAYMENT_METHOD_EMAILS)) {
+    if (method.includes(key) && cfg.from) {
+      const rawSubj = tenant.emailSubj || null;
+      const subjectHint = rawSubj
+        ? cleanSubjectForSearch(rawSubj)
+        : cfg.subjectTemplate || null;  // already a plain keyword string
+      return {
+        from: cfg.from,
+        subjectHint,
+        subjectFallbacks: subjectHint ? [] : cfg.subjectHints,
+      };
+    }
+  }
+
+  // 3. Last resort: subject-only search
+  if (tenant.emailSubj) {
+    return { from: null, subjectHint: cleanSubjectForSearch(tenant.emailSubj) };
+  }
+  return null;
+}
+
+// ── Gmail payment detection ───────────────────────────────────────────────────
+async function gmailScanAll(onlyPastMonths = false) {
+  if (!gmailToken) { showToast('Sign in with Google first to scan Gmail.'); return; }
+  if (!tenants.length) { showToast('Load the sheet first, then scan Gmail.'); return; }
+  setGmailStatus('⏳ Scanning…', 'var(--unassigned)');
+  const months = rentMonths().filter(m => !m.isFuture || !onlyPastMonths);
+  // Only scan past + current months (skip future)
+  const scanMonths = months.filter(m => !m.isFuture);
+  let updated = 0;
+  for (const t of tenants) {
+    const params = getPaymentSearchParams(t);
+    if (!params) continue;
+    for (const m of scanMonths) {
+      const storeKey = `${t.id}-${m.key}`;
+      if (rentPayments[storeKey] === 'paid') continue;
+      const found = await gmailSearchPayment(t, m, params);
+      if (found) {
+        rentPayments[storeKey] = 'paid';
+        updated++;
+      }
+    }
+  }
+  saveRentState();
+  renderRentTracker();
+  setGmailStatus('✅ Signed in', '#059669');
+  showToast(updated > 0 ? `✅ Found ${updated} payment(s) in Gmail` : '📭 No new payments detected in Gmail');
+  // Also scan for any forwarded [REVENUE] / [EXPENSE] emails
+  await gmailScanForwardedEmails();
+  // Scan for auto-labeled emails (dashboard-revenue / dashboard-expense labels)
+  await gmailScanByLabels();
+  return updated;
+}
+
+async function gmailSearchPayment(tenant, month, params) {
+  if (!params) return false;
+  const y = month.year;
+  const m = String(month.month + 1).padStart(2, '0');
+  const afterDate  = `${y}/${m}/01`;
+  const lastDay    = new Date(y, month.month + 1, 0).getDate();
+  const beforeDate = `${y}/${m}/${lastDay}`;
+
+  // Build query — try explicit subject first, then service-level subject hints
+  const queries = [];
+  const baseDate = `after:${afterDate} before:${beforeDate}`;
+  const fromPart = params.from ? `from:${params.from}` : '';
+
+  if (params.subjectHint) {
+    // Exact subject from sheet col K
+    queries.push(`${fromPart} subject:"${params.subjectHint}" ${baseDate}`.trim());
+  } else if (params.subjectFallbacks && params.subjectFallbacks.length) {
+    // Try each service-level subject keyword — one query per keyword
+    for (const hint of params.subjectFallbacks) {
+      queries.push(`${fromPart} subject:"${hint}" ${baseDate}`.trim());
+    }
+  } else if (fromPart) {
+    // No subject hint — just search by sender + date
+    queries.push(`${fromPart} ${baseDate}`.trim());
+  }
+
+  for (const q of queries) {
+    try {
+      const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q)}&maxResults=1`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${gmailToken}` } });
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          gmailToken = null;
+          gmailTokenExpiry = 0;
+          setGmailStatus('⚠️ Session expired — click ⚡ Sign in & Scan Now', '#d97706');
+          showToast('⚠️ Gmail session expired — click ⚡ Sign in & Scan Now to reconnect');
+        }
+        return false;
+      }
+      const data = await resp.json();
+      if (data.messages && data.messages.length > 0) return true;
+    } catch(e) {
+      console.warn('Gmail search error:', e);
+    }
+  }
+  return false;
+}
+
+// ── Auto-scan scheduler ───────────────────────────────────────────────────────
+// On page load: check if we're in the "collection window" (1st–5th of month).
+// If so, scan Gmail automatically. On the 5th, send a reminder for unpaid tenants.
+const REMINDER_EMAIL = localStorage.getItem('reminderEmail') || '';
+
+function getRentCollectionState() {
+  const now = new Date();
+  const day = now.getDate();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  return { day, monthKey, inWindow: day >= 1 && day <= 5 };
+}
+
+async function autoScanIfNeeded() {
+  const { day, monthKey, inWindow } = getRentCollectionState();
+  if (!inWindow) return;
+
+  const lastScanKey = `rentLastScan-${monthKey}`;
+  const lastScanDay = parseInt(localStorage.getItem(lastScanKey) || '0', 10);
+
+  // Already scanned today
+  if (lastScanDay === day) return;
+
+  // Need Gmail token — if not signed in, skip (user must sign in manually first)
+  if (!gmailToken) return;
+
+  showToast(`📅 Auto-scanning Gmail (day ${day} of month)…`);
+  const updated = await gmailScanAll(true);
+  localStorage.setItem(lastScanKey, String(day));
+
+  // On day 5 (or later in window), send reminders for still-unpaid tenants
+  if (day >= 5) {
+    await sendUnpaidReminders(monthKey);
+  }
+}
+
+async function sendUnpaidReminders(monthKey) {
+  const unpaid = tenants.filter(t => {
+    const s = rentPayments[`${t.id}-${monthKey}`] || 'pending';
+    return s === 'pending' || s === 'unpaid';
+  });
+  if (!unpaid.length) return;
+
+  const reminderSentKey = `rentReminderSent-${monthKey}`;
+  if (localStorage.getItem(reminderSentKey)) return;  // already sent this month
+
+  const tenantsHaveEmail = unpaid.filter(t => t.notifEmail);
+  const myEmail = document.getElementById('reminderEmail')?.value.trim() || localStorage.getItem('reminderEmail') || '';
+
+  if (!myEmail) {
+    // Show a toast with the names so user is aware
+    const names = unpaid.map(t => t.name).join(', ');
+    showToast(`⚠️ ${unpaid.length} tenant(s) haven't paid by day 5: ${names}`);
+    return;
+  }
+
+  // Send summary email to yourself via Gmail API
+  const subject = `🏠 Rent Reminder — ${unpaid.length} tenant(s) unpaid as of ${new Date().toLocaleDateString()}`;
+  const body = [
+    `Hi Eric,`,
+    ``,
+    `The following tenant(s) have not paid rent as of the 5th of this month:`,
+    ``,
+    ...unpaid.map(t => `  • ${t.name} (${t.address}) — $${(t.amount||'?')} via ${t.payMethod||'?'}${t.notifEmail ? ` — ${t.notifEmail}` : ''}`),
+    ``,
+    `Please follow up with them directly.`,
+    ``,
+    `— Property Dashboard`,
+  ].join('\n');
+
+  try {
+    await gmailSendEmail(myEmail, subject, body);
+    localStorage.setItem(reminderSentKey, '1');
+    showToast(`📧 Reminder email sent for ${unpaid.length} unpaid tenant(s)`);
+  } catch(e) {
+    console.warn('Failed to send reminder email:', e);
+    const names = unpaid.map(t => t.name).join(', ');
+    showToast(`⚠️ ${unpaid.length} unpaid by day 5: ${names}`);
+  }
+}
+
+async function gmailSendEmail(to, subject, body) {
+  // Build RFC 2822 message
+  const message = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `Content-Type: text/plain; charset=utf-8`,
+    ``,
+    body,
+  ].join('\r\n');
+
+  const encoded = btoa(unescape(encodeURIComponent(message)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${gmailToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ raw: encoded }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+  }
+}
+
+// ── Demo Data ─────────────────────────────────────────────────────────────────
+function rentLoadDemo() {
+  tenants = [
+    { id:'t1', name:'James Okafor',    address:'124 Maple St, Oakland CA',   amount:'2,400', payMethod:'Zelle',        senderEmail:'james@example.com', emailSubj:'Rent Payment - Maple', notifEmail:'james@example.com' },
+    { id:'t2', name:'Sofia Reyes',     address:'310 Pine Ave, Berkeley CA',  amount:'1,850', payMethod:'Venmo',        senderEmail:'sofia@example.com',  emailSubj:'Monthly Rent - Sofia',  notifEmail:'sofia@example.com' },
+    { id:'t3', name:'David & Mei Lin', address:'88 Oak Blvd, Emeryville CA', amount:'3,100', payMethod:'Bank Transfer', senderEmail:'davidlin@example.com',emailSubj:'Rent 88 Oak',          notifEmail:'davidlin@example.com' },
+    { id:'t4', name:'Priya Nair',      address:'450 Cedar Rd, Albany CA',    amount:'1,650', payMethod:'Check',        senderEmail:'priya@example.com',  emailSubj:'Priya rent payment',    notifEmail:'priya@example.com' },
+  ];
+  const now = new Date();
+  // mk(-2) = 2 months ago, mk(0) = current month, mk(1..3) = future
+  const mk = (offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
+  rentPayments = {
+    // Past 2 months (fully paid for most)
+    [`t1-${mk(-2)}`]:'paid',    [`t1-${mk(-1)}`]:'paid',    [`t1-${mk(0)}`]:'paid',
+    [`t2-${mk(-2)}`]:'paid',    [`t2-${mk(-1)}`]:'paid',    [`t2-${mk(0)}`]:'pending',
+    [`t3-${mk(-2)}`]:'paid',    [`t3-${mk(-1)}`]:'unpaid',  [`t3-${mk(0)}`]:'unpaid',
+    [`t4-${mk(-2)}`]:'paid',    [`t4-${mk(-1)}`]:'paid',    [`t4-${mk(0)}`]:'pending',
+    // Future months left blank (will show dimmed)
+  };
+  saveRentState();
+  renderRentTracker();
+  showToast('📋 Demo rent data loaded');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderRentTracker() {
+  const months = rentMonths();  // past 2 + current + future 3
+
+  // Stats — always count against the actual current month (not the last displayed month)
+  document.getElementById('rentStats').style.display = 'grid';
+  const curKey = months.find(m => m.isCurrent)?.key || months[2].key;
+  const paidCount    = tenants.filter(t => rentPayments[`${t.id}-${curKey}`] === 'paid').length;
+  const pendingCount = tenants.filter(t => {
+    const s = rentPayments[`${t.id}-${curKey}`] || 'pending';
+    return s === 'pending' || s === 'unpaid';
+  }).length;
+  const totalAmt = tenants.reduce((sum, t) => {
+    const n = parseFloat((t.amount || '').replace(/[^0-9.]/g,''));
+    return sum + (isNaN(n) ? 0 : n);
+  }, 0);
+
+  document.getElementById('rentStatTotal').textContent   = tenants.length;
+  document.getElementById('rentStatPaid').textContent    = paidCount;
+  document.getElementById('rentStatPending').textContent = pendingCount;
+  document.getElementById('rentStatAmount').textContent  = totalAmt > 0 ? `$${totalAmt.toLocaleString()}` : '—';
+
+  if (!tenants.length) {
+    document.getElementById('rentTableContent').innerHTML = `<div class="rent-empty"><div class="icon">🏠</div><p>No tenants found. Check that Column G contains "Eric" for at least one row.</p></div>`;
+    return;
+  }
+
+  const monthHeaders = months.map(m => {
+    let style = '';
+    if (m.isCurrent) style = 'color:var(--red);font-weight:800;';
+    else if (m.isFuture) style = 'color:#b0b8c1;';
+    return `<th class="month-header" style="${style}">${m.label}${m.isCurrent ? ' ●' : ''}</th>`;
+  }).join('');
+
+  const rows = tenants.map(t => {
+    const monthCells = months.map(m => {
+      const key = `${t.id}-${m.key}`;
+      // Future months: show dimmed placeholder (no click to mark paid)
+      if (m.isFuture) {
+        return `<td class="month-cell"><span class="pay-cell na" style="opacity:0.35;cursor:default;" title="Future month">–</span></td>`;
+      }
+      const status = rentPayments[key] || 'pending';
+      const icon   = { paid:'✓', unpaid:'✗', na:'–', pending:'?' }[status] || '?';
+      const label  = { paid:'Paid', unpaid:'Late', na:'N/A', pending:'Pending' }[status] || 'Pending';
+      return `<td class="month-cell">
+        <span class="pay-cell ${status}" onclick="cyclePayment('${t.id}','${m.key}')" title="${label} — click to change">${icon}</span>
+      </td>`;
+    }).join('');
+
+    // Strip any existing $ from sheet value before adding our own
+    const amtClean = (t.amount || '').replace(/^\$/, '').trim();
+    const amtDisplay = amtClean ? `$${amtClean}` : '—';
+    const methodBadge = t.payMethod
+      ? `<span class="pay-method-badge">${escHtml(t.payMethod)}</span>`
+      : '<span style="color:var(--muted)">—</span>';
+
+    const params = getPaymentSearchParams(t);
+    const canScan = !!params;
+    const scanTitle = params
+      ? `Scan Gmail${params.from ? ` (from: ${params.from})` : ''}${params.subjectHint ? `, subject: "${params.subjectHint}"` : ''}`
+      : 'No email info — add Col J (sender) or Col K (subject)';
+    const scanBtn = `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;${canScan ? '' : 'opacity:0.4;cursor:not-allowed;'}"
+      onclick="${canScan ? `gmailScanOne('${t.id}')` : ''}" title="${escHtml(scanTitle)}">🔍</button>`;
+    const emailLink = t.notifEmail
+      ? `<a href="mailto:${t.notifEmail}?subject=${encodeURIComponent(t.emailSubj||'Rent Payment')}" style="color:var(--red);font-size:13px;text-decoration:none;" title="Email ${t.notifEmail}">✉️</a>`
+      : '';
+
+    return `<tr>
+      <td>
+        <strong>${escHtml(t.name)}</strong>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escHtml(t.address||'—')}</div>
+      </td>
+      <td><span class="rent-amount">${escHtml(amtDisplay)}</span><div style="font-size:11px;color:var(--muted);">/mo</div></td>
+      <td>${methodBadge}</td>
+      ${monthCells}
+      <td style="white-space:nowrap;display:flex;gap:6px;align-items:center;padding-top:16px;">${emailLink}${scanBtn}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rentTableContent').innerHTML = `
+    <table class="rent-table">
+      <thead>
+        <tr>
+          <th>Tenant / Address</th>
+          <th>Rent</th>
+          <th>Method</th>
+          ${monthHeaders}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Scan Gmail for a single tenant across past + current months
+async function gmailScanOne(tenantId) {
+  if (!gmailToken) { showToast('Sign in with Google first to scan Gmail.'); return; }
+  const t = tenants.find(x => x.id === tenantId);
+  if (!t) return;
+  const params = getPaymentSearchParams(t);
+  if (!params) { showToast(`⚠️ No email info for ${t.name} — fill in Col J (sender) or Col K (subject).`); return; }
+  const months = rentMonths().filter(m => !m.isFuture);
+  let updated = 0;
+  for (const m of months) {
+    const storeKey = `${t.id}-${m.key}`;
+    if (rentPayments[storeKey] === 'paid') continue;
+    const found = await gmailSearchPayment(t, m, params);
+    if (found) { rentPayments[storeKey] = 'paid'; updated++; }
+  }
+  saveRentState();
+  renderRentTracker();
+  showToast(updated > 0 ? `✅ Found ${updated} payment(s) for ${t.name}` : `📭 No new payments found for ${t.name}`);
+}
+
+// ── Cycle payment status on click ─────────────────────────────────────────────
+const RENT_CYCLE = ['pending', 'paid', 'unpaid', 'na'];
+function cyclePayment(tenantId, monthKey) {
+  const storeKey = `${tenantId}-${monthKey}`;
+  const cur = rentPayments[storeKey] || 'pending';
+  const next = RENT_CYCLE[(RENT_CYCLE.indexOf(cur) + 1) % RENT_CYCLE.length];
+  rentPayments[storeKey] = next;
+  saveRentState();
+  renderRentTracker();
+  const label = { paid:'✅ Marked paid', unpaid:'❌ Marked late', na:'Marked N/A', pending:'⏳ Marked pending' }[next];
+  showToast(label);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Airbnb payout auto-detection ──────────────────────────────────────────────
+// Airbnb sends: from automated@airbnb.com
+// Subject: "We sent a payout of $XXXX USD"
+// We scan from Jan 1 of the current year and extract amounts per month.
+async function gmailFetchAirbnbPayouts() {
+  if (!gmailToken) return;
+
+  const currentYear = new Date().getFullYear();
+
+  // Candidate queries — tried in order, stop on first hit
+  // Primary: exact subject + exact sender (most precise)
+  const candidateQueries = [
+    'from:automated@airbnb.com subject:"We sent a payout"',
+    'from:automated@airbnb.com subject:"sent a payout"',
+    'from:automated@airbnb.com subject:"payout"',
+    'from:automated@airbnb.com',
+  ];
+
+  let messages = [];
+  let usedQuery = null;
+  for (const q of candidateQueries) {
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q + ` after:${currentYear}/01/01`)}&maxResults=50`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${gmailToken}` }});
+    if (!r.ok) continue;
+    const d = await r.json();
+    if (d.messages && d.messages.length > 0) {
+      messages = d.messages;
+      usedQuery = q;
+      console.log(`Airbnb payout query matched: "${q}" — ${d.messages.length} email(s)`);
+      break;
+    }
+  }
+
+  if (!messages.length) {
+    console.log(`No Airbnb payout emails found in ${currentYear} (tried all queries)`);
+    showToast('📭 No Airbnb payout emails found in Gmail this year');
+    return;
+  }
+
+  // Fetch subject + date metadata for each email
+  let updated = 0;
+  let skipped = 0;
+  for (const msg of messages) {
+    const mr = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=Date`,
+      { headers: { Authorization: `Bearer ${gmailToken}` }}
+    );
+    if (!mr.ok) continue;
+    const md = await mr.json();
+    const headers = md.payload?.headers || [];
+    const subject = headers.find(h => h.name === 'Subject')?.value || '';
+    const dateStr  = headers.find(h => h.name === 'Date')?.value || '';
+
+    console.log(`Airbnb email: "${subject}" — ${dateStr}`);
+
+    // Extract amount from subject: "We sent a payout of $1,234.56 USD"
+    // Matches $X, $X,XXX, $X,XXX.XX formats
+    const amtMatch = subject.match(/\$[\d,]+(?:\.\d{2})?/);
+    if (!amtMatch) {
+      console.log('  → No dollar amount found in subject, skipping');
+      continue;
+    }
+    const amount = parseFloat(amtMatch[0].replace(/[$,]/g, ''));
+    if (!amount) continue;
+
+    // Get month key from email date
+    const emailDate = new Date(dateStr);
+    if (isNaN(emailDate.getTime())) {
+      console.log('  → Could not parse date, skipping');
+      continue;
+    }
+    const monthKey = `${emailDate.getFullYear()}-${String(emailDate.getMonth() + 1).padStart(2, '0')}`;
+
+    console.log(`  → Amount: $${amount}, Month: ${monthKey}`);
+
+    // Use the actual email date for the revenueItems entry
+    const itemDate = `${emailDate.getFullYear()}-${String(emailDate.getMonth() + 1).padStart(2, '0')}-${String(emailDate.getDate()).padStart(2, '0')}`;
+
+    // Only add if no revenueItem for this month's Airbnb payout already exists
+    const alreadyExists = revenueItems.some(
+      r => r.source === 'Airbnb Payout' && r.date.startsWith(monthKey)
+    );
+    if (!alreadyExists) {
+      revenueItems.push({ id: 'ab-' + msg.id, date: itemDate, source: 'Airbnb Payout', amount });
+      updated++;
+    } else {
+      skipped++;
+      console.log(`  → Airbnb payout for ${monthKey} already in revenueItems, skipping`);
+    }
+  }
+
+  // Sort by date after adding
+  revenueItems.sort((a, b) => a.date.localeCompare(b.date));
+
+  if (updated > 0) {
+    saveRevenueItems();
+    renderIncomeStatement();
+    showToast(`✅ Pulled ${updated} Airbnb payout(s) from Gmail${skipped > 0 ? ` (${skipped} already set)` : ''}`);
+  } else if (skipped > 0) {
+    showToast(`ℹ️ Airbnb payouts already up to date (${skipped} found, none new)`);
+  } else {
+    showToast('📭 Airbnb payout emails found but no amounts could be extracted');
+  }
+}
+
+function toggleSheetHelp(e) {
+  e.preventDefault();
+  const el = document.getElementById('sheetHelp');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Forwarded-email processing ────────────────────────────────────────────────
+// The user forwards any email to themselves with a subject prefix:
+//   [REVENUE] Description $amount   → added to revenue panel
+//   [EXPENSE] Description $amount   → added to expense tracker
+// The Gmail message ID is used as a stable dedup key so re-scanning never
+// double-adds an entry.
+
+function parseForwardedSubject(subject) {
+  // Detect type from prefix tag (case-insensitive, bracket or no bracket)
+  const typeMatch = subject.match(/^\s*\[(REVENUE|EXPENSE)\]\s*/i);
+  if (!typeMatch) return null;
+  const isRevenue = typeMatch[1].toUpperCase() === 'REVENUE';
+
+  // Strip the tag
+  let s = subject.replace(typeMatch[0], '').trim();
+
+  // Extract dollar amount anywhere in the remaining text
+  const amtMatch = s.match(/\$[\d,]+(?:\.\d{2})?/);
+  if (!amtMatch) return null;  // require explicit $ amount
+  const amount = parseFloat(amtMatch[0].replace(/[$,]/g, ''));
+  if (!amount || amount <= 0) return null;
+
+  // Everything except the amount = description
+  let description = s.replace(amtMatch[0], '').replace(/\s{2,}/g, ' ').trim();
+  if (!description) description = isRevenue ? 'Forwarded Revenue' : 'Forwarded Expense';
+
+  return { isRevenue, amount, description };
+}
+
+async function gmailScanForwardedEmails() {
+  if (!gmailToken) {
+    showToast('Sign in with Google first.');
+    return;
+  }
+
+  const currentYear = new Date().getFullYear();
+  // Two separate queries — Gmail API doesn't support OR inside subject:
+  const queries = [
+    `subject:"[REVENUE]" after:${currentYear}/01/01`,
+    `subject:"[EXPENSE]" after:${currentYear}/01/01`,
+  ];
+
+  let revenueAdded = 0, expenseAdded = 0;
+
+  for (const q of queries) {
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q)}&maxResults=50`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${gmailToken}` }});
+    if (!r.ok) {
+      if (r.status === 401) {
+        gmailToken = null; gmailTokenExpiry = 0;
+        setGmailStatus('⚠️ Session expired — click ⚡ Sign in & Scan Now', '#d97706');
+        return;
+      }
+      continue;
+    }
+    const d = await r.json();
+    if (!d.messages?.length) continue;
+
+    for (const msg of d.messages) {
+      // Dedup IDs keyed on Gmail message ID
+      const revId = `rev-fwd-${msg.id}`;
+      const expId = `exp-fwd-${msg.id}`;
+      const alreadyRev = revenueItems.some(r => r.id === revId);
+      const alreadyExp = expenses.some(e => e.id === expId);
+      if (alreadyRev || alreadyExp) continue;
+
+      // Fetch subject + date metadata
+      const mr = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=Date`,
+        { headers: { Authorization: `Bearer ${gmailToken}` }}
+      );
+      if (!mr.ok) continue;
+      const md = await mr.json();
+      const hdr = md.payload?.headers || [];
+      const subject  = hdr.find(h => h.name === 'Subject')?.value || '';
+      const dateStr  = hdr.find(h => h.name === 'Date')?.value || '';
+      const emailDate = new Date(dateStr);
+      if (isNaN(emailDate.getTime())) continue;
+
+      const parsed = parseForwardedSubject(subject);
+      if (!parsed) continue;
+
+      const itemDate = emailDate.toISOString().slice(0, 10);
+      console.log(`Forwarded email: "${subject}" → ${parsed.isRevenue ? 'REVENUE' : 'EXPENSE'} $${parsed.amount} "${parsed.description}"`);
+
+      if (parsed.isRevenue) {
+        revenueItems.push({ id: revId, date: itemDate, source: parsed.description, amount: parsed.amount });
+        revenueAdded++;
+      } else {
+        expenses.unshift({ id: expId, date: itemDate, name: parsed.description, vendor: '', amount: parsed.amount, payment: 'Forwarded' });
+        expenseAdded++;
+      }
+    }
+  }
+
+  if (revenueAdded || expenseAdded) {
+    revenueItems.sort((a, b) => a.date.localeCompare(b.date));
+    saveRevenueItems();
+    saveExpenses();
+    renderIncomeStatement();
+    renderExpenseTracker();
+    showToast(`✅ Processed ${revenueAdded} revenue + ${expenseAdded} expense email(s) from forwards`);
+  } else {
+    showToast('📭 No new forwarded emails found. Forward with [REVENUE] or [EXPENSE] in subject.');
+  }
+}
+
+function toggleForwardHelp() {
+  const el = document.getElementById('forwardHelp');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GMAIL AUTO-RULES (label-based scanning)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Pre-built rule templates for common senders
+const LABEL_RULES = [
+  { id: 'airbnb',     type: 'revenue', label: 'dashboard-revenue', from: 'automated@airbnb.com',          name: 'Airbnb Payouts' },
+  { id: 'vrbo',       type: 'revenue', label: 'dashboard-revenue', from: 'noreply@homeaway.com',           name: 'VRBO / HomeAway Payouts' },
+  { id: 'hipcamp',    type: 'revenue', label: 'dashboard-revenue', from: 'notifications@hipcamp.com',      name: 'Hipcamp Payouts' },
+  { id: 'amazon',     type: 'expense', label: 'dashboard-expense', from: 'auto-confirm@amazon.com',        name: 'Amazon Receipts' },
+  { id: 'costco',     type: 'expense', label: 'dashboard-expense', from: 'ereceipt@costco.com',            name: 'Costco Receipts' },
+  { id: 'homedepot',  type: 'expense', label: 'dashboard-expense', from: 'homedepot@reply.homedepot.com', name: 'Home Depot Receipts' },
+  { id: 'lowes',      type: 'expense', label: 'dashboard-expense', from: 'lowes@email.lowes.com',          name: "Lowe's Receipts" },
+  { id: 'target',     type: 'expense', label: 'dashboard-expense', from: 'target@em.target.com',           name: 'Target Receipts' },
+];
+
+function buildGmailFilterURL(rule) {
+  // Gmail's pre-filled filter creation URL
+  const base = 'https://mail.google.com/mail/u/0/#create-filter';
+  const params = new URLSearchParams();
+  if (rule.from)    params.set('from',    rule.from);
+  if (rule.subject) params.set('subject', rule.subject);
+  // action_label pre-selects "Apply label" in Gmail's filter dialog
+  params.set('action_label', rule.label);
+  return `${base}?${params.toString()}`;
+}
+
+function openGmailFilter(ruleId) {
+  const rule = LABEL_RULES.find(r => r.id === ruleId);
+  if (!rule) return;
+  window.open(buildGmailFilterURL(rule), '_blank');
+}
+
+function openCustomGmailFilter() {
+  const from    = document.getElementById('customRuleFrom')?.value.trim();
+  const subject = document.getElementById('customRuleSubject')?.value.trim();
+  const type    = document.getElementById('customRuleType')?.value;
+  if (!from && !subject) { showToast('Enter a sender or subject to create a custom rule.'); return; }
+  const label = type === 'revenue' ? 'dashboard-revenue' : 'dashboard-expense';
+  const rule = { from, subject, label };
+  window.open(buildGmailFilterURL(rule), '_blank');
+}
+
+function toggleAutoRules() {
+  const panel = document.getElementById('autoRulesPanel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) renderRulesGrid();
+}
+
+function renderRulesGrid() {
+  const grid = document.getElementById('rulesGrid');
+  if (!grid) return;
+  grid.innerHTML = LABEL_RULES.map(rule => {
+    const detail = rule.from ? `from: ${rule.from}` : `subject: ${rule.subject}`;
+    return `<div class="rule-row">
+      <span class="rule-row-name">${escHtml(rule.name)}</span>
+      <span class="rule-type-badge ${rule.type}">${rule.type}</span>
+      <span class="rule-detail">${escHtml(detail)}</span>
+      <button class="rule-open-btn" onclick="openGmailFilter('${rule.id}')">Create in Gmail →</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Amount extraction from email snippet/body ─────────────────────────────
+function extractAmountFromSnippet(snippet) {
+  if (!snippet) return null;
+  const s = snippet.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  const patterns = [
+    /\$\s*[\d,]+(?:\.\d{2})?/,                       // $1,234.56
+    /USD\s*[\d,]+(?:\.\d{2})?/,                      // USD 1234.56
+    /payout[:\s]+\$?[\d,]+(?:\.\d{2})?/i,            // Payout: $500
+    /total[:\s]+\$?[\d,]+(?:\.\d{2})?/i,             // Total: $45.00
+    /amount[:\s]+\$?[\d,]+(?:\.\d{2})?/i,            // Amount: $100
+    /payment[:\s]+\$?[\d,]+(?:\.\d{2})?/i,           // Payment: $200
+    /charge[:\s]+\$?[\d,]+(?:\.\d{2})?/i,            // Charge: $30
+    /sent you \$?[\d,]+(?:\.\d{2})?/i,               // sent you $500
+    /received \$?[\d,]+(?:\.\d{2})?/i,               // received $500
+    /\b[\d,]+\.\d{2}\b/,                              // bare decimal: 45.00
+  ];
+  for (const p of patterns) {
+    const m = s.match(p);
+    if (m) {
+      const num = parseFloat(m[0].replace(/[^0-9.]/g, ''));
+      if (num > 0 && num < 1000000) return num;  // sanity check
+    }
+  }
+  return null;
+}
+
+// ── Pending-review state ──────────────────────────────────────────────────
+let pendingReview = JSON.parse(localStorage.getItem('pendingReview') || '[]');
+// Each: { id, date, subject, from, snippet, isRevenue }
+
+function savePendingReview() {
+  localStorage.setItem('pendingReview', JSON.stringify(pendingReview));
+}
+
+function approvePendingReview(id) {
+  const inp = document.getElementById('pr-inp-' + id);
+  const val = parseFloat(inp?.value);
+  if (!val || isNaN(val) || val <= 0) { showToast('Enter a valid dollar amount.'); return; }
+
+  const item = pendingReview.find(p => p.id === id);
+  if (!item) return;
+
+  if (item.isRevenue) {
+    revenueItems.push({ id: item.id, date: item.date, source: item.subject || 'Auto-labeled email', amount: val });
+    revenueItems.sort((a, b) => a.date.localeCompare(b.date));
+    saveRevenueItems();
+  } else {
+    expenses.unshift({ id: item.id, date: item.date, name: item.subject || 'Auto-labeled email', vendor: item.from || '', amount: val, payment: 'Auto' });
+    saveExpenses();
+    renderExpenseTracker();
+  }
+
+  pendingReview = pendingReview.filter(p => p.id !== id);
+  savePendingReview();
+  renderIncomeStatement();
+  showToast('✅ Item saved to ledger');
+}
+
+function discardPendingReview(id) {
+  pendingReview = pendingReview.filter(p => p.id !== id);
+  savePendingReview();
+  renderIncomeStatement();
+}
+
+// ── Label-based Gmail scanner ─────────────────────────────────────────────
+async function gmailScanByLabels() {
+  if (!gmailToken) return;
+  const currentYear = new Date().getFullYear();
+  const labelQueries = [
+    { q: `label:dashboard-revenue after:${currentYear}/01/01`, isRevenue: true,  idPrefix: 'lbl-rev' },
+    { q: `label:dashboard-expense after:${currentYear}/01/01`, isRevenue: false, idPrefix: 'lbl-exp' },
+  ];
+
+  let autoAdded = 0, pendingAdded = 0;
+
+  for (const { q, isRevenue, idPrefix } of labelQueries) {
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q)}&maxResults=50`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${gmailToken}` }});
+    if (!r.ok) {
+      if (r.status === 401) {
+        gmailToken = null; gmailTokenExpiry = 0;
+        setGmailStatus('⚠️ Session expired — click ⚡ Sign in & Scan Now', '#d97706');
+        return;
+      }
+      continue;
+    }
+    const d = await r.json();
+    if (!d.messages?.length) continue;
+
+    for (const msg of d.messages) {
+      const itemId = `${idPrefix}-${msg.id}`;
+      // Skip if already in ledger or pending review
+      const alreadyInLedger = isRevenue
+        ? revenueItems.some(r => r.id === itemId)
+        : expenses.some(e => e.id === itemId);
+      const alreadyPending = pendingReview.some(p => p.id === itemId);
+      if (alreadyInLedger || alreadyPending) continue;
+
+      // Fetch metadata (Subject, Date, From) + snippet
+      const mr = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=From`,
+        { headers: { Authorization: `Bearer ${gmailToken}` }}
+      );
+      if (!mr.ok) continue;
+      const md = await mr.json();
+      const hdr      = md.payload?.headers || [];
+      const subject  = hdr.find(h => h.name === 'Subject')?.value || '';
+      const dateStr  = hdr.find(h => h.name === 'Date')?.value || '';
+      const from     = hdr.find(h => h.name === 'From')?.value || '';
+      const snippet  = md.snippet || '';
+      const emailDate = new Date(dateStr);
+      if (isNaN(emailDate.getTime())) continue;
+      const itemDate = emailDate.toISOString().slice(0, 10);
+
+      // Try to extract amount from snippet
+      const amount = extractAmountFromSnippet(snippet);
+      console.log(`Label scan: "${subject}" → ${isRevenue ? 'revenue' : 'expense'}, amount=${amount}`);
+
+      if (amount !== null) {
+        // Amount found — add directly to ledger
+        if (isRevenue) {
+          revenueItems.push({ id: itemId, date: itemDate, source: subject || from, amount });
+          autoAdded++;
+        } else {
+          expenses.unshift({ id: itemId, date: itemDate, name: subject || 'Auto email', vendor: from, amount, payment: 'Auto' });
+          autoAdded++;
+        }
+      } else {
+        // Amount not found — add to pending review
+        pendingReview.push({ id: itemId, date: itemDate, subject: subject || '(no subject)', from, snippet, isRevenue });
+        pendingAdded++;
+      }
+    }
+  }
+
+  if (autoAdded || pendingAdded) {
+    revenueItems.sort((a, b) => a.date.localeCompare(b.date));
+    saveRevenueItems();
+    saveExpenses();
+    savePendingReview();
+    renderIncomeStatement();
+    renderExpenseTracker();
+    const msgs = [];
+    if (autoAdded)   msgs.push(`✅ ${autoAdded} auto-labeled email(s) added`);
+    if (pendingAdded) msgs.push(`⚠️ ${pendingAdded} need amount review`);
+    showToast(msgs.join(' · '));
+  }
+  // No toast if nothing found — avoids noise when labels don't exist yet
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 2026 INCOME STATEMENT
+// ════════════════════════════════════════════════════════════════════════════
+
+// Tenant names whose rent counts as YOUR income (not pass-throughs)
+const INCOME_TENANTS = ['Michael Christian Tsuchida', 'Jinna Isabella Brim', 'Madison Corinne Williams'];
+
+// Jan + Feb 2026 are pre-paid (always show as paid regardless of rentPayments)
+const PREPAID_MONTHS = ['2026-01', '2026-02'];
+
+// ── revenueItems: flat array of all revenue entries ───────────────────────────
+// Each: { id, date: "YYYY-MM-DD", source: string, amount: number }
+let revenueItems = JSON.parse(localStorage.getItem('revenueItems') || '[]');
+
+// One-time migration: if old airbnbRevenue object exists and revenueItems is empty, convert
+(function migrateAirbnbRevenue() {
+  const old = JSON.parse(localStorage.getItem('airbnbRevenue') || '{}');
+  if (Object.keys(old).length && !revenueItems.length) {
+    revenueItems = Object.entries(old)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mk, amt]) => ({
+        id: 'ab-' + mk,
+        date: mk + '-01',
+        source: 'Airbnb Payout',
+        amount: Number(amt) || 0,
+      }));
+    localStorage.setItem('revenueItems', JSON.stringify(revenueItems));
+    console.log(`Migrated ${revenueItems.length} Airbnb revenue entries to revenueItems`);
+  }
+})();
+
+function saveRevenueItems() {
+  localStorage.setItem('revenueItems', JSON.stringify(revenueItems));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtMonthKey(key) {
+  const [y, m] = key.split('-');
+  return new Date(+y, +m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function fmt$(n) {
+  if (!n && n !== 0) return '—';
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function fmtDateShort(dateStr) {
+  // dateStr is "YYYY-MM-DD"
+  if (!dateStr) return '—';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
+// ── Revenue CRUD ──────────────────────────────────────────────────────────────
+function addRevenueItem() {
+  const date   = document.getElementById('revAddDate').value;
+  const source = document.getElementById('revAddSource').value.trim() || 'Airbnb Payout';
+  const amount = parseFloat(document.getElementById('revAddAmount').value);
+  if (!date)            { showToast('Please pick a date.'); return; }
+  if (!amount || isNaN(amount) || amount <= 0) { showToast('Please enter a valid amount.'); return; }
+  revenueItems.push({ id: Date.now().toString(), date, source, amount });
+  revenueItems.sort((a, b) => a.date.localeCompare(b.date));
+  saveRevenueItems();
+  renderIncomeStatement();
+  document.getElementById('revAddDate').value   = '';
+  document.getElementById('revAddSource').value = '';
+  document.getElementById('revAddAmount').value = '';
+  showToast(`✅ Added revenue: ${source} — ${fmt$(amount)}`);
+}
+
+function deleteRevenueItem(id) {
+  revenueItems = revenueItems.filter(r => r.id !== id);
+  saveRevenueItems();
+  renderIncomeStatement();
+  showToast('Revenue entry removed');
+}
+
+function startEditRevenue(id) {
+  // Swap the amount cell to an input
+  const amtEl = document.getElementById('rev-amt-' + id);
+  const cur = revenueItems.find(r => r.id === id);
+  if (!cur || !amtEl) return;
+  amtEl.innerHTML = `<input class="income-edit-input" id="rev-inp-${id}"
+    type="number" min="0" step="1" value="${cur.amount}"
+    onblur="saveEditRevenue('${id}')"
+    onkeydown="if(event.key==='Enter')saveEditRevenue('${id}');if(event.key==='Escape')renderIncomeStatement();">`;
+  const inp = document.getElementById('rev-inp-' + id);
+  inp.focus(); inp.select();
+}
+
+function saveEditRevenue(id) {
+  const inp = document.getElementById('rev-inp-' + id);
+  if (!inp) return;
+  const val = parseFloat(inp.value);
+  if (!isNaN(val) && val >= 0) {
+    const r = revenueItems.find(r => r.id === id);
+    if (r) { r.amount = val; saveRevenueItems(); }
+  }
+  renderIncomeStatement();
+}
+
+// ── Tenant-rent delete (toggle paid → pending) ────────────────────────────────
+function deleteRentRevenue(tenantId, monthKey) {
+  rentPayments[`${tenantId}-${monthKey}`] = 'pending';
+  saveRentState();
+  renderRentTracker();
+  renderIncomeStatement();
+  showToast('Rent payment unmarked — set to Pending in rent tracker');
+}
+
+// ── Expense edit (inline) ─────────────────────────────────────────────────────
+function startEditExpense(id) {
+  const amtEl = document.getElementById('exp-amt-' + id);
+  const cur = expenses.find(e => e.id === id);
+  if (!cur || !amtEl) return;
+  amtEl.innerHTML = `<input class="income-edit-input" id="exp-inp-${id}"
+    type="number" min="0" step="0.01" value="${cur.amount}"
+    onblur="saveEditExpense('${id}')"
+    onkeydown="if(event.key==='Enter')saveEditExpense('${id}');if(event.key==='Escape')renderIncomeStatement();">`;
+  const inp = document.getElementById('exp-inp-' + id);
+  inp.focus(); inp.select();
+}
+
+function saveEditExpense(id) {
+  const inp = document.getElementById('exp-inp-' + id);
+  if (!inp) return;
+  const val = parseFloat(inp.value);
+  if (!isNaN(val) && val >= 0) {
+    const e = expenses.find(e => e.id === id);
+    if (e) { e.amount = val; saveExpenses(); renderExpenseTracker(); }
+  }
+  renderIncomeStatement();
+}
+
+// ── Cleaning cost edit/delete from income panel ───────────────────────────────
+function startEditCleaningIncome(uid) {
+  const amtEl = document.getElementById('cl-amt-' + uid);
+  if (!amtEl) return;
+  const cur = cleaningCosts[uid] || 0;
+  amtEl.innerHTML = `<input class="income-edit-input" id="cl-inp-${uid}"
+    type="number" min="0" step="1" value="${cur}"
+    onblur="saveEditCleaningIncome('${uid}')"
+    onkeydown="if(event.key==='Enter')saveEditCleaningIncome('${uid}');if(event.key==='Escape')renderIncomeStatement();">`;
+  const inp = document.getElementById('cl-inp-' + uid);
+  inp.focus(); inp.select();
+}
+
+function saveEditCleaningIncome(uid) {
+  const inp = document.getElementById('cl-inp-' + uid);
+  if (!inp) return;
+  const val = parseFloat(inp.value);
+  saveCleaningCost(uid, isNaN(val) ? '' : val);
+  // saveCleaningCost already calls renderIncomeStatement
+}
+
+function deleteCleaningIncome(uid) {
+  delete cleaningCosts[uid];
+  saveState();
+  renderIncomeStatement();
+  showToast('Cleaning cost removed');
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function renderIncomeStatement() {
+  // ── Revenue panel ──────────────────────────────────────────────────────────
+  // 1. revenueItems (Airbnb payouts + manually added)
+  // 2. Tenant rent payments (paid only) for INCOME_TENANTS
+
+  const incomeTenants = tenants.filter(t =>
+    INCOME_TENANTS.some(name =>
+      t.name.toLowerCase().includes(name.split(' ')[0].toLowerCase()) &&
+      t.name.toLowerCase().includes(name.split(' ').slice(-1)[0].toLowerCase())
+    )
+  );
+
+  // Build combined revenue rows (sorted by date)
+  let allRevRows = [];
+
+  // a) revenueItems
+  for (const r of revenueItems) {
+    allRevRows.push({ date: r.date, label: r.source, amount: r.amount, type: 'item', id: r.id });
+  }
+
+  // b) Tenant rent (all months 2026)
+  for (const t of incomeTenants) {
+    for (let mo = 1; mo <= 12; mo++) {
+      const mk = `2026-${String(mo).padStart(2, '0')}`;
+      const storeKey = `${t.id}-${mk}`;
+      const status = PREPAID_MONTHS.includes(mk) ? 'paid' : (rentPayments[storeKey] || 'pending');
+      if (status !== 'paid') continue;
+      const amt = parseFloat((t.amount || '0').replace(/[^0-9.]/g, '')) || 0;
+      const firstName = t.name.split(' ')[0];
+      allRevRows.push({ date: mk + '-01', label: firstName + ' (Rent)', amount: amt, type: 'rent', tenantId: t.id, monthKey: mk });
+    }
+  }
+
+  // Sort by date
+  allRevRows.sort((a, b) => a.date.localeCompare(b.date));
+  const totalRevenue = allRevRows.reduce((s, r) => s + r.amount, 0);
+
+  let revBodyHtml = '';
+  if (allRevRows.length === 0) {
+    revBodyHtml = `<tr><td colspan="4" class="income-empty">No revenue recorded yet.<br>Add a payout below or scan Gmail.</td></tr>`;
+  } else {
+    revBodyHtml = allRevRows.map(r => {
+      const amtCell = `<span id="rev-amt-${r.id || (r.tenantId + '-' + r.monthKey)}">${fmt$(r.amount)}</span>`;
+      const editBtn = r.type === 'item'
+        ? `<button class="income-btn" onclick="startEditRevenue('${r.id}')" title="Edit amount">✏️</button>`
+        : '';  // rent amounts come from the sheet, not editable here
+      const delBtn = r.type === 'item'
+        ? `<button class="income-btn del" onclick="deleteRevenueItem('${r.id}')" title="Delete">✕</button>`
+        : `<button class="income-btn del" onclick="deleteRentRevenue('${r.tenantId}','${r.monthKey}')" title="Unmark as paid">✕</button>`;
+      const badge = r.type === 'rent'
+        ? ` <span class="rent-source-badge">rent</span>`
+        : '';
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--muted);font-size:12px;">${fmtDateShort(r.date)}</td>
+        <td>${escHtml(r.label)}${badge}</td>
+        <td class="income-amount income-positive" style="min-width:70px;">${amtCell}</td>
+        <td><div class="income-row-actions">${editBtn}${delBtn}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Add-revenue inline form
+  const revAddForm = `
+    <div class="income-add-row">
+      <input type="date" id="revAddDate" title="Payout date">
+      <input type="text" id="revAddSource" placeholder="Source (e.g. Airbnb Payout)" style="width:160px;">
+      <input type="number" id="revAddAmount" placeholder="Amount" min="0" step="1" style="width:90px;">
+      <button class="btn-add" onclick="addRevenueItem()">+ Add</button>
+    </div>`;
+
+  // Pending review banner — revenue
+  const pendingRev = pendingReview.filter(p => p.isRevenue);
+  const pendingRevBannerEl = document.getElementById('pendingRevBanner');
+  if (pendingRevBannerEl) {
+    if (pendingRev.length > 0) {
+      const rowsHtml = pendingRev.map(p => `
+        <div class="pending-review-row">
+          <span class="pr-date">${fmtDateShort(p.date)}</span>
+          <span class="pr-desc" title="${escHtml(p.snippet)}">${escHtml(p.subject)}</span>
+          <input class="pr-input" id="pr-inp-${p.id}" type="number" placeholder="$amount" min="0" step="0.01">
+          <button class="pr-save" onclick="approvePendingReview('${p.id}')">✓ Save</button>
+          <button class="pr-discard" onclick="discardPendingReview('${p.id}')" title="Discard">✕</button>
+        </div>`).join('');
+      pendingRevBannerEl.innerHTML = `
+        <div class="pending-review-banner" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          ⚠️ ${pendingRev.length} auto-labeled email${pendingRev.length > 1 ? 's' : ''} need${pendingRev.length === 1 ? 's' : ''} an amount ▾
+        </div>
+        <div class="pending-review-rows">${rowsHtml}</div>`;
+    } else {
+      pendingRevBannerEl.innerHTML = '';
+    }
+  }
+
+  document.getElementById('incomeRevenueContent').innerHTML = `
+    <table class="income-table">
+      <thead>
+        <tr>
+          <th style="width:80px;">Date</th>
+          <th>Source</th>
+          <th class="income-amount">Amount</th>
+          <th style="width:60px;"></th>
+        </tr>
+      </thead>
+      <tbody>${revBodyHtml}</tbody>
+    </table>
+    ${revAddForm}`;
+
+  document.getElementById('revCardTotal').textContent = fmt$(totalRevenue);
+
+  // ── Expenses panel ─────────────────────────────────────────────────────────
+  // 1. Cleaning costs (from cleaningCosts keyed by booking uid)
+  // 2. Misc expenses (from expenses[])
+  let allExpRows = [];
+
+  for (const b of bookings) {
+    const cost = cleaningCosts[b.uid];
+    if (!cost) continue;
+    const cd = cleaningDate(b);
+    const dateStr = toInputDate(cd);
+    const cleaner = assignments[b.uid] || 'Cleaner';
+    allExpRows.push({ date: dateStr, label: `${cleaner} – Cleaning`, amount: cost, type: 'cleaning', uid: b.uid });
+  }
+
+  for (const e of expenses) {
+    allExpRows.push({ date: e.date || '', label: e.name, sub: e.vendor, amount: e.amount || 0, type: 'expense', id: e.id, payment: e.payment });
+  }
+
+  allExpRows.sort((a, b) => a.date.localeCompare(b.date));
+  const totalExpenses = allExpRows.reduce((s, r) => s + r.amount, 0);
+
+  let expBodyHtml = '';
+  if (allExpRows.length === 0) {
+    expBodyHtml = `<tr><td colspan="4" class="income-empty">No expenses recorded yet.</td></tr>`;
+  } else {
+    expBodyHtml = allExpRows.map(r => {
+      const idKey = r.type === 'cleaning' ? r.uid : r.id;
+      const prefix = r.type === 'cleaning' ? 'cl' : 'exp';
+      const amtCell = `<span id="${prefix}-amt-${idKey}">${fmt$(r.amount)}</span>`;
+      const editFn  = r.type === 'cleaning' ? `startEditCleaningIncome('${idKey}')` : `startEditExpense('${idKey}')`;
+      const delFn   = r.type === 'cleaning' ? `deleteCleaningIncome('${idKey}')` : `deleteExpense('${idKey}')`;
+      const sub = r.sub ? `<div style="font-size:11px;color:var(--muted);">${escHtml(r.sub)}</div>` : '';
+      const payBadge = r.payment ? ` <span class="cc-badge" style="font-size:10px;">${escHtml(r.payment)}</span>` : '';
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--muted);font-size:12px;">${fmtDateShort(r.date)}</td>
+        <td>${escHtml(r.label)}${payBadge}${sub}</td>
+        <td class="income-amount income-negative" style="min-width:70px;">${amtCell}</td>
+        <td><div class="income-row-actions">
+          <button class="income-btn" onclick="${editFn}" title="Edit amount">✏️</button>
+          <button class="income-btn del" onclick="${delFn}" title="Delete">✕</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Pending review banner — expenses
+  const pendingExp = pendingReview.filter(p => !p.isRevenue);
+  const pendingExpBannerEl = document.getElementById('pendingExpBanner');
+  if (pendingExpBannerEl) {
+    if (pendingExp.length > 0) {
+      const rowsHtml = pendingExp.map(p => `
+        <div class="pending-review-row">
+          <span class="pr-date">${fmtDateShort(p.date)}</span>
+          <span class="pr-desc" title="${escHtml(p.snippet)}">${escHtml(p.subject)}</span>
+          <input class="pr-input" id="pr-inp-${p.id}" type="number" placeholder="$amount" min="0" step="0.01">
+          <button class="pr-save" onclick="approvePendingReview('${p.id}')">✓ Save</button>
+          <button class="pr-discard" onclick="discardPendingReview('${p.id}')" title="Discard">✕</button>
+        </div>`).join('');
+      pendingExpBannerEl.innerHTML = `
+        <div class="pending-review-banner" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          ⚠️ ${pendingExp.length} auto-labeled email${pendingExp.length > 1 ? 's' : ''} need${pendingExp.length === 1 ? 's' : ''} an amount ▾
+        </div>
+        <div class="pending-review-rows">${rowsHtml}</div>`;
+    } else {
+      pendingExpBannerEl.innerHTML = '';
+    }
+  }
+
+  document.getElementById('incomeExpenseContent').innerHTML = `
+    <table class="income-table">
+      <thead>
+        <tr>
+          <th style="width:80px;">Date</th>
+          <th>Description</th>
+          <th class="income-amount">Amount</th>
+          <th style="width:60px;"></th>
+        </tr>
+      </thead>
+      <tbody>${expBodyHtml}</tbody>
+    </table>`;
+
+  document.getElementById('expCardTotal').textContent = fmt$(totalExpenses);
+
+  // ── YTD summary bar ────────────────────────────────────────────────────────
+  const ytdNet = totalRevenue - totalExpenses;
+  document.getElementById('summaryRevenue').textContent  = fmt$(totalRevenue);
+  document.getElementById('summaryExpenses').textContent = fmt$(totalExpenses);
+  const netEl = document.getElementById('summaryNet');
+  netEl.textContent = fmt$(ytdNet);
+  netEl.className = 'value ' + (ytdNet >= 0 ? 'income-positive' : 'income-negative');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXPENSE TRACKER
+// ════════════════════════════════════════════════════════════════════════════
+let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+
+function saveExpenses() {
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+}
+
+function addExpense() {
+  const date    = document.getElementById('expDate').value;
+  const name    = document.getElementById('expName').value.trim();
+  const vendor  = document.getElementById('expVendor').value.trim();
+  const amount  = parseFloat(document.getElementById('expAmount').value);
+  const payment = document.getElementById('expPayment').value;
+
+  if (!name)        { showToast('Please enter a description.'); return; }
+  if (!amount || isNaN(amount)) { showToast('Please enter a valid amount.'); return; }
+  if (!payment)     { showToast('Please select a payment method.'); return; }
+
+  const exp = {
+    id: Date.now().toString(),
+    date: date || new Date().toISOString().slice(0, 10),
+    name, vendor, amount, payment,
+  };
+  expenses.unshift(exp);  // newest first
+  saveExpenses();
+  renderExpenseTracker();
+  renderIncomeStatement();
+
+  // Clear form (keep date)
+  document.getElementById('expName').value   = '';
+  document.getElementById('expVendor').value = '';
+  document.getElementById('expAmount').value = '';
+  document.getElementById('expPayment').value = '';
+  showToast(`✅ Added expense: ${name} — $${amount.toFixed(2)}`);
+}
+
+function deleteExpense(id) {
+  expenses = expenses.filter(e => e.id !== id);
+  saveExpenses();
+  renderExpenseTracker();
+  renderIncomeStatement();
+  showToast('Expense removed');
+}
+
+function renderExpenseTracker() {
+  const tbody = document.getElementById('expenseTableBody');
+  const empty = document.getElementById('expenseEmpty');
+  if (!expenses.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Sort newest first
+  const sorted = [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  let totalAmt = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+
+  tbody.innerHTML = sorted.map(e => `
+    <tr>
+      <td style="white-space:nowrap;">${e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
+      <td><strong>${escHtml(e.name)}</strong></td>
+      <td style="color:var(--muted);">${escHtml(e.vendor || '—')}</td>
+      <td><span class="cc-badge">${escHtml(e.payment)}</span></td>
+      <td style="text-align:right;font-weight:600;">$${(e.amount||0).toFixed(2)}</td>
+      <td><button class="expense-delete" onclick="deleteExpense('${e.id}')" title="Remove">✕</button></td>
+    </tr>
+  `).join('') + `
+    <tr style="background:var(--bg);">
+      <td colspan="4" style="text-align:right;font-weight:700;font-size:13px;padding:10px 14px;">Total</td>
+      <td style="text-align:right;font-weight:700;padding:10px 14px;">$${totalAmt.toFixed(2)}</td>
+      <td></td>
+    </tr>`;
+}
+
+// ── Auto-load on page open ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Airbnb iCal
+  const savedIcal = localStorage.getItem('icalUrl');
+  if (savedIcal) {
+    document.getElementById('icalUrl').value = savedIcal;
+    loadIcal(true);
+  }
+
+  // Restore Sheet / API key / Gmail fields
+  const savedId    = localStorage.getItem('rentSheetId');
+  const savedKey   = localStorage.getItem('rentApiKey');
+  const savedCid   = localStorage.getItem('gmailClientId');
+  const savedEmail = localStorage.getItem('reminderEmail');
+  if (savedId)    document.getElementById('sheetId').value       = savedId;
+  if (savedKey)   document.getElementById('sheetsApiKey').value  = savedKey;
+  if (savedCid)   document.getElementById('gmailClientId').value = savedCid;
+  if (savedEmail) document.getElementById('reminderEmail').value = savedEmail;
+
+  // Restore tenants from cache + render immediately (no API call needed)
+  const cachedTenants = localStorage.getItem('rentTenants');
+  if (cachedTenants) {
+    try { tenants = JSON.parse(cachedTenants); renderRentTracker(); } catch(_) {}
+  }
+
+  // Auto-load from sheet if credentials are saved
+  if (savedId && savedKey) rentLoadSheet();
+
+  // Auto-scan Gmail if we're in the 1st–5th window and user already signed in this session
+  setTimeout(() => {
+    if (gmailToken) autoScanIfNeeded();
+  }, 3000);
+
+  // Income statement + expense tracker
+  renderExpenseTracker();
+  renderIncomeStatement();
+
+  // Pre-fill expense date to today
+  document.getElementById('expDate').value = new Date().toISOString().slice(0, 10);
+});
+</script>
+</body>
+</html>
