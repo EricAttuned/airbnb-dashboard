@@ -647,6 +647,22 @@
     thead .sticky-col { background: #fafafa; z-index: 2; }
     tr:hover .sticky-col { background: #fafafa; }
 
+    /* ── Tax category badge ── */
+    .tax-cat-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px;
+      font-weight: 600; background: #f0f9ff; color: #0369a1; white-space: nowrap;
+    }
+    .receipt-link {
+      color: var(--muted); font-size: 14px; text-decoration: none; transition: color 0.15s;
+    }
+    .receipt-link:hover { color: var(--red); }
+    .btn-export {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-export:hover { background: var(--bg); }
+
     /* ── Mobile layout ── */
     @media (max-width: 768px) {
       .income-grid { grid-template-columns: 1fr; }
@@ -995,6 +1011,11 @@
     </div>
   </div>
 
+  <!-- Export -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <button class="btn-export" onclick="exportIncomeCSV()">⬇ Export P&amp;L CSV</button>
+  </div>
+
   <!-- Two-column: Revenue | Expenses -->
   <div class="income-grid">
     <!-- Revenue -->
@@ -1055,11 +1076,39 @@
         <option>Chase Checking</option>
       </select>
     </div>
+    <div class="field">
+      <label>Schedule E Category</label>
+      <select id="expCategory">
+        <option value="">— Select —</option>
+        <option>Advertising</option>
+        <option>Auto &amp; Travel</option>
+        <option>Cleaning &amp; Maintenance</option>
+        <option>Commissions</option>
+        <option>Insurance</option>
+        <option>Legal &amp; Professional</option>
+        <option>Management Fees</option>
+        <option>Mortgage Interest</option>
+        <option>Other Interest</option>
+        <option>Repairs</option>
+        <option>Supplies</option>
+        <option>Taxes</option>
+        <option>Utilities</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Receipt URL (optional)</label>
+      <input type="url" id="expReceipt" placeholder="Drive / Dropbox link" style="width:180px;" />
+    </div>
     <button class="btn btn-primary" onclick="addExpense()" style="height:34px;align-self:flex-end;">+ Add</button>
   </div>
 
   <!-- Expense list -->
   <div class="expense-list">
+    <div style="display:flex;justify-content:flex-end;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg);">
+      <button class="btn-export" onclick="exportExpenseCSV()">⬇ Export CSV</button>
+    </div>
+    <div class="table-scroll-wrap">
     <table>
       <thead>
         <tr>
@@ -1067,12 +1116,15 @@
           <th>Description</th>
           <th>Vendor</th>
           <th>Paid With</th>
+          <th>Schedule E Category</th>
           <th style="text-align:right;">Amount</th>
+          <th>Receipt</th>
           <th></th>
         </tr>
       </thead>
       <tbody id="expenseTableBody"></tbody>
     </table>
+    </div>
     <div id="expenseEmpty" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No expenses added yet.</div>
   </div>
 </section>
@@ -3028,11 +3080,13 @@ function saveExpenses() {
 }
 
 function addExpense() {
-  const date    = document.getElementById('expDate').value;
-  const name    = document.getElementById('expName').value.trim();
-  const vendor  = document.getElementById('expVendor').value.trim();
-  const amount  = parseFloat(document.getElementById('expAmount').value);
-  const payment = document.getElementById('expPayment').value;
+  const date       = document.getElementById('expDate').value;
+  const name       = document.getElementById('expName').value.trim();
+  const vendor     = document.getElementById('expVendor').value.trim();
+  const amount     = parseFloat(document.getElementById('expAmount').value);
+  const payment    = document.getElementById('expPayment').value;
+  const taxCategory = document.getElementById('expCategory').value;
+  const receiptUrl  = document.getElementById('expReceipt').value.trim();
 
   if (!name)        { showToast('Please enter a description.'); return; }
   if (!amount || isNaN(amount)) { showToast('Please enter a valid amount.'); return; }
@@ -3041,7 +3095,7 @@ function addExpense() {
   const exp = {
     id: Date.now().toString(),
     date: date || new Date().toISOString().slice(0, 10),
-    name, vendor, amount, payment,
+    name, vendor, amount, payment, taxCategory, receiptUrl,
   };
   expenses.unshift(exp);  // newest first
   saveExpenses();
@@ -3049,10 +3103,12 @@ function addExpense() {
   renderIncomeStatement();
 
   // Clear form (keep date)
-  document.getElementById('expName').value   = '';
-  document.getElementById('expVendor').value = '';
-  document.getElementById('expAmount').value = '';
-  document.getElementById('expPayment').value = '';
+  document.getElementById('expName').value      = '';
+  document.getElementById('expVendor').value    = '';
+  document.getElementById('expAmount').value    = '';
+  document.getElementById('expPayment').value   = '';
+  document.getElementById('expCategory').value  = '';
+  document.getElementById('expReceipt').value   = '';
   showToast(`✅ Added expense: ${name} — $${amount.toFixed(2)}`);
 }
 
@@ -3078,21 +3134,105 @@ function renderExpenseTracker() {
   const sorted = [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   let totalAmt = expenses.reduce((s, e) => s + (e.amount || 0), 0);
 
-  tbody.innerHTML = sorted.map(e => `
+  tbody.innerHTML = sorted.map(e => {
+    // Receipt: Gmail link for forwarded emails, or stored URL for manual entries
+    let receiptCell = '—';
+    if (e.id && e.id.startsWith('exp-fwd-')) {
+      const msgId = e.id.replace('exp-fwd-', '');
+      receiptCell = `<a class="receipt-link" href="https://mail.google.com/mail/u/0/#inbox/${msgId}" target="_blank" title="View receipt email in Gmail">📧</a>`;
+    } else if (e.receiptUrl) {
+      receiptCell = `<a class="receipt-link" href="${escHtml(e.receiptUrl)}" target="_blank" title="View receipt">🔗</a>`;
+    }
+    return `
     <tr>
       <td style="white-space:nowrap;">${e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
       <td><strong>${escHtml(e.name)}</strong></td>
       <td style="color:var(--muted);">${escHtml(e.vendor || '—')}</td>
       <td><span class="cc-badge">${escHtml(e.payment)}</span></td>
+      <td>${e.taxCategory ? `<span class="tax-cat-badge">${escHtml(e.taxCategory)}</span>` : '<span style="color:var(--muted);font-size:11px;">—</span>'}</td>
       <td style="text-align:right;font-weight:600;">$${(e.amount||0).toFixed(2)}</td>
+      <td style="text-align:center;">${receiptCell}</td>
       <td><button class="expense-delete" onclick="deleteExpense('${e.id}')" title="Remove">✕</button></td>
-    </tr>
-  `).join('') + `
-    <tr style="background:var(--bg);">
-      <td colspan="4" style="text-align:right;font-weight:700;font-size:13px;padding:10px 14px;">Total</td>
-      <td style="text-align:right;font-weight:700;padding:10px 14px;">$${totalAmt.toFixed(2)}</td>
-      <td></td>
     </tr>`;
+  }).join('') + `
+    <tr style="background:var(--bg);">
+      <td colspan="5" style="text-align:right;font-weight:700;font-size:13px;padding:10px 14px;">Total</td>
+      <td style="text-align:right;font-weight:700;padding:10px 14px;">$${totalAmt.toFixed(2)}</td>
+      <td colspan="2"></td>
+    </tr>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CSV EXPORT
+// ════════════════════════════════════════════════════════════════════════════
+
+function csvRow(cells) {
+  return cells.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',');
+}
+
+function downloadCSV(filename, rows) {
+  const blob = new Blob([rows.join('\r\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExpenseCSV() {
+  const year = new Date().getFullYear();
+  const rows = [
+    csvRow(['Date', 'Description', 'Vendor', 'Paid With', 'Schedule E Category', 'Amount']),
+    ...[...expenses]
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .map(e => csvRow([e.date || '', e.name || '', e.vendor || '', e.payment || '', e.taxCategory || '', (e.amount || 0).toFixed(2)]))
+  ];
+  downloadCSV(`expenses-${year}.csv`, rows);
+  showToast(`✅ Exported ${expenses.length} expenses`);
+}
+
+function exportIncomeCSV() {
+  const year = new Date().getFullYear();
+  const rows = [csvRow(['Date', 'Type', 'Description', 'Amount', 'Notes'])];
+
+  // Revenue rows (from renderIncomeStatement logic)
+  const incomeTenants = tenants.filter(t =>
+    INCOME_TENANTS.some(name =>
+      t.name.toLowerCase().includes(name.split(' ')[0].toLowerCase()) &&
+      t.name.toLowerCase().includes(name.split(' ').slice(-1)[0].toLowerCase())
+    )
+  );
+
+  for (const r of [...revenueItems].sort((a, b) => a.date.localeCompare(b.date))) {
+    rows.push(csvRow([r.date, 'Revenue', r.source, r.amount.toFixed(2), '']));
+  }
+
+  for (const t of incomeTenants) {
+    for (let mo = 1; mo <= 12; mo++) {
+      const mk = `${year}-${String(mo).padStart(2,'0')}`;
+      const storeKey = `${t.id}-${mk}`;
+      const status = PREPAID_MONTHS.includes(mk) ? 'paid' : (rentPayments[storeKey] || 'pending');
+      if (status !== 'paid') continue;
+      const amt = parseFloat((t.amount || '0').replace(/[^0-9.]/g, '')) || 0;
+      rows.push(csvRow([mk + '-01', 'Revenue', t.name.split(' ')[0] + ' (Rent)', amt.toFixed(2), '']));
+    }
+  }
+
+  // Cleaning cost expenses
+  for (const b of bookings) {
+    const cost = cleaningCosts[b.uid];
+    if (!cost) continue;
+    const cleaner = assignments[b.uid] || 'Cleaner';
+    const dateStr = toInputDate(cleaningDate(b));
+    rows.push(csvRow([dateStr, 'Expense', `Cleaning — ${cleaner}`, cost.toFixed(2), 'Cleaning & Maintenance']));
+  }
+
+  // Misc expenses
+  for (const e of [...expenses].sort((a, b) => (a.date || '').localeCompare(b.date || ''))) {
+    rows.push(csvRow([e.date || '', 'Expense', e.name || '', (e.amount || 0).toFixed(2), e.taxCategory || '']));
+  }
+
+  downloadCSV(`income-statement-${year}.csv`, rows);
+  showToast(`✅ Exported P&L data`);
 }
 
 // ── Auto-load on page open ─────────────────────────────────────────────────────
