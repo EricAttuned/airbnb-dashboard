@@ -1550,12 +1550,29 @@ function messageModal(name, phone, bookingUid) {
   document.getElementById('modalName').textContent = name;
   document.getElementById('modalNumber').textContent = CLEANERS[name]?.display || phone;
 
-  // Pre-fill message if booking provided
   let prefill = '';
   if (bookingUid) {
+    // Single-booking message (from Cleaning tab)
     const b = bookings.find(x => x.uid === bookingUid);
     if (b) {
       prefill = `Hi ${name}! Can you clean on ${fmtDate(cleaningDate(b))} after ${guestNamePlain(b)} checks out? Please confirm when you're available. Thanks!`;
+    }
+  } else {
+    // Full schedule summary for this cleaner
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcoming = bookings
+      .filter(b => assignments[b.uid] === name && cleaningDate(b) >= today)
+      .sort((a, b) => cleaningDate(a) - cleaningDate(b));
+    if (upcoming.length) {
+      const lines = upcoming.map(b => {
+        const cd = cleaningDate(b);
+        const mm = String(cd.getMonth() + 1).padStart(2, '0');
+        const dd = String(cd.getDate()).padStart(2, '0');
+        return `-${mm}/${dd}: 11-4pm`;
+      });
+      prefill = `Here is the updated cleaning schedule:\n${lines.join('\n')}`;
+    } else {
+      prefill = `Hi ${name}! No upcoming cleanings scheduled at the moment.`;
     }
   }
   document.getElementById('msgText').value = prefill;
