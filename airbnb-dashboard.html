@@ -1375,7 +1375,7 @@ function renderBookingsTab() {
             </div>` :
             `<span style="color:var(--muted);font-size:12px;">—</span>`;
           // Cleaner arrival date — keyed on prevUid (the checkout being cleaned), defaults to b.start (check-in day)
-          const arrivalDefaultDate = toInputDate(b.start);
+          const arrivalDefaultDate = prevUid ? toInputDate(bookings[i-1].end) : toInputDate(b.start);
           const arrivalCurrentDate = prevUid ? (cleaningDates[prevUid] || arrivalDefaultDate) : arrivalDefaultDate;
           const arrivalIsCustom = prevUid && cleaningDates[prevUid] && cleaningDates[prevUid] !== toInputDate(bookings[i-1].end);
           const arrivalDateCell = prevUid ? `
