@@ -1691,7 +1691,8 @@ function saveTenantPhone(id, phone) {
 }
 
 function textTenant(tenantId, firstName) {
-  let phone = tenantPhones[tenantId];
+  const t = tenants.find(x => x.id === tenantId);
+  let phone = t?.phone || tenantPhones[tenantId];
   if (!phone) {
     phone = prompt(`Enter ${firstName}'s phone number:`);
     if (!phone) return;
@@ -1779,6 +1780,7 @@ function parseSheetRows(rows) {
 
     const address     = (cols[0]  || '').trim();    // Col A
     const renterName  = (cols[2]  || '').trim();    // Col C
+    const phone       = (cols[5]  || '').trim();    // Col F
     const rentAmount  = (cols[7]  || '').trim();    // Col H
     const notifEmail  = (cols[8]  || '').trim();    // Col I
     const senderEmail = (cols[9]  || '').trim();    // Col J
@@ -1789,7 +1791,7 @@ function parseSheetRows(rows) {
     results.push({
       id: makeTenantId(renterName || '(unnamed)', address),
       name: renterName || '(unnamed)',
-      address, amount: rentAmount,
+      address, amount: rentAmount, phone,
       notifEmail, senderEmail, emailSubj, payMethod,
     });
   });
