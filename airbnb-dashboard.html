@@ -1707,9 +1707,14 @@ async function rentLoadSheet() {
   }
 }
 
+// Stable tenant ID derived from name + address — does NOT change when sheet rows are reordered
+function makeTenantId(name, address) {
+  return 'T-' + (name + '-' + address).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 36);
+}
+
 function parseSheetRows(rows) {
   const results = [];
-  rows.forEach((cols, i) => {
+  rows.forEach((cols) => {
     const paidTo = (cols[6] || '').trim();           // Col G (index 6)
     if (!paidTo.toLowerCase().includes('eric')) return;
 
@@ -1723,7 +1728,7 @@ function parseSheetRows(rows) {
 
     if (!renterName && !address) return;
     results.push({
-      id: `t${i}`,
+      id: makeTenantId(renterName || '(unnamed)', address),
       name: renterName || '(unnamed)',
       address, amount: rentAmount,
       notifEmail, senderEmail, emailSubj, payMethod,
