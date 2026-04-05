@@ -1343,14 +1343,16 @@ function renderBookingsTab() {
           const prevBooking = bookings[i - 1];
           const prevUid = prevBooking ? prevBooking.uid : null;
           const cleanerVal = prevUid ? (assignments[prevUid] || '') : '';
-          const cleanerDropdown = `
-            <select class="cleaner-dropdown ${cleanerVal === 'Karla' ? 'sel-karla' : cleanerVal === 'Priscilla' ? 'sel-priscilla' : 'sel-unassigned'}"
-              onchange="assignFromBookingsTab('${prevUid}', this.value, this)"
-              ${!prevUid ? 'disabled title="No prior checkout to assign"' : ''}>
-              <option value="">— Unassigned</option>
-              <option value="Karla"     ${cleanerVal === 'Karla'     ? 'selected' : ''}>Karla</option>
-              <option value="Priscilla" ${cleanerVal === 'Priscilla' ? 'selected' : ''}>Priscilla</option>
-            </select>`;
+          const cleanerBtns = prevUid ? `
+            <div style="display:flex;gap:5px;">
+              <button class="cleaner-btn karla ${cleanerVal === 'Karla' ? 'active' : ''}"
+                onclick="assignFromBookingsTab('${prevUid}', 'Karla')"
+                title="Assign Karla">K</button>
+              <button class="cleaner-btn priscilla ${cleanerVal === 'Priscilla' ? 'active' : ''}"
+                onclick="assignFromBookingsTab('${prevUid}', 'Priscilla')"
+                title="Assign Priscilla">P</button>
+            </div>` :
+            `<span style="color:var(--muted);font-size:12px;">—</span>`;
           // Cleaner arrival date — keyed on prevUid (the checkout being cleaned), defaults to b.start (check-in day)
           const arrivalDefaultDate = toInputDate(b.start);
           const arrivalCurrentDate = prevUid ? (cleaningDates[prevUid] || arrivalDefaultDate) : arrivalDefaultDate;
@@ -1369,7 +1371,7 @@ function renderBookingsTab() {
             <td>${fmtDate(b.end)}</td>
             <td>${nights} night${nights!==1?'s':''}</td>
             <td>${status}</td>
-            <td>${cleanerDropdown}</td>
+            <td>${cleanerBtns}</td>
             <td style="white-space:nowrap;">${arrivalDateCell}</td>
             <td>
               <textarea class="note-input" rows="1" placeholder="Add note…"
@@ -1520,21 +1522,17 @@ function assign(uid, cleaner) {
   renderAll();
 }
 
-// Called from the Cleaner dropdown in the Bookings tab
+// Called from the K/P buttons in the Bookings tab
 // uid here is the PREVIOUS booking's uid (the checkout being cleaned)
-function assignFromBookingsTab(uid, cleaner, selectEl) {
+function assignFromBookingsTab(uid, cleaner) {
   if (!uid || uid === 'null') return;
-  if (cleaner === '') {
-    delete assignments[uid];
-  } else {
-    assignments[uid] = cleaner;
-  }
+  // Toggle off if already assigned to same cleaner
+  if (assignments[uid] === cleaner) delete assignments[uid];
+  else assignments[uid] = cleaner;
   saveState();
-  // Update dropdown colour without full re-render (avoids losing focus)
-  selectEl.className = `cleaner-dropdown ${cleaner === 'Karla' ? 'sel-karla' : cleaner === 'Priscilla' ? 'sel-priscilla' : 'sel-unassigned'}`;
-  // Re-render stats + cleaner summary cards + cleaning tab silently
   renderStats();
   renderCleanerSummary();
+  renderBookingsTab();
   renderCleaningTab();
 }
 
