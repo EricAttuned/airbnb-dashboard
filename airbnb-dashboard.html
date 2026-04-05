@@ -1360,32 +1360,28 @@ function renderBookingsTab() {
         ${bookings.map((b, i) => {
           const nights = Math.round((b.end - b.start) / 86400000);
           const status = statusBadge(b, today);
-          // The cleaner for THIS booking's check-in is whoever is assigned to the previous booking's checkout
-          const prevBooking = bookings[i - 1];
-          const prevUid = prevBooking ? prevBooking.uid : null;
-          const cleanerVal = prevUid ? (assignments[prevUid] || '') : '';
-          const cleanerBtns = prevUid ? `
+          // Each row: cleaner assigned to THIS booking's checkout (b.uid)
+          const cleanerVal = assignments[b.uid] || '';
+          const cleanerBtns = `
             <div style="display:flex;gap:5px;">
               <button class="cleaner-btn karla ${cleanerVal === 'Karla' ? 'active' : ''}"
-                onclick="assignFromBookingsTab('${prevUid}', 'Karla')"
+                onclick="assignFromBookingsTab('${b.uid}', 'Karla')"
                 title="Assign Karla">K</button>
               <button class="cleaner-btn priscilla ${cleanerVal === 'Priscilla' ? 'active' : ''}"
-                onclick="assignFromBookingsTab('${prevUid}', 'Priscilla')"
+                onclick="assignFromBookingsTab('${b.uid}', 'Priscilla')"
                 title="Assign Priscilla">P</button>
-            </div>` :
-            `<span style="color:var(--muted);font-size:12px;">—</span>`;
-          // Cleaner arrival date — keyed on prevUid (the checkout being cleaned), defaults to b.start (check-in day)
-          const arrivalDefaultDate = prevUid ? toInputDate(bookings[i-1].end) : toInputDate(b.start);
-          const arrivalCurrentDate = prevUid ? (cleaningDates[prevUid] || arrivalDefaultDate) : arrivalDefaultDate;
-          const arrivalIsCustom = prevUid && cleaningDates[prevUid] && cleaningDates[prevUid] !== toInputDate(bookings[i-1].end);
-          const arrivalDateCell = prevUid ? `
+            </div>`;
+          // Cleaner arrival date — defaults to this booking's checkout date
+          const arrivalDefault = toInputDate(b.end);
+          const arrivalCurrent = cleaningDates[b.uid] || arrivalDefault;
+          const arrivalIsCustom = cleaningDates[b.uid] && cleaningDates[b.uid] !== arrivalDefault;
+          const arrivalDateCell = `
             <input type="date" class="date-input ${arrivalIsCustom ? 'date-custom' : ''}"
-              value="${arrivalCurrentDate}"
-              data-default="${toInputDate(bookings[i-1].end)}"
-              onchange="saveCleaningDate('${prevUid}', this.value); this.classList.toggle('date-custom', this.value !== this.dataset.default);"
-              title="${arrivalIsCustom ? 'Custom date (checkout is ' + fmtDate(bookings[i-1].end) + ')' : 'Defaults to checkout date — click to change'}">
-            ${arrivalIsCustom ? `<span class="date-reset" onclick="saveCleaningDate('${prevUid}',''); this.previousElementSibling.value='${toInputDate(bookings[i-1].end)}'; this.previousElementSibling.classList.remove('date-custom'); this.remove();" title="Reset to checkout date">↺</span>` : ''}
-          ` : `<span style="color:var(--muted);font-size:12px;">—</span>`;
+              value="${arrivalCurrent}"
+              data-default="${arrivalDefault}"
+              onchange="saveCleaningDate('${b.uid}', this.value); this.classList.toggle('date-custom', this.value !== this.dataset.default);"
+              title="${arrivalIsCustom ? 'Custom date (checkout is ' + fmtDate(b.end) + ')' : 'Defaults to checkout date — click to change'}">
+            ${arrivalIsCustom ? `<span class="date-reset" onclick="saveCleaningDate('${b.uid}',''); this.previousElementSibling.value='${arrivalDefault}'; this.previousElementSibling.classList.remove('date-custom'); this.remove();" title="Reset to checkout date">↺</span>` : ''}`;
           // Compact guest tag shown under the check-out date
           const guestTag = b.phone4
             ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;">···${b.phone4}</div>`
