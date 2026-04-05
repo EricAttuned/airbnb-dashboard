@@ -637,6 +637,25 @@
       display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
       font-weight: 600; background: #f1f5f9; color: #475569;
     }
+
+    /* ── Scrollable tables with frozen first column ── */
+    .table-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sticky-col {
+      position: sticky; left: 0; z-index: 1;
+      background: var(--card); box-shadow: 2px 0 5px rgba(0,0,0,0.06);
+    }
+    thead .sticky-col { background: #fafafa; z-index: 2; }
+    tr:hover .sticky-col { background: #fafafa; }
+
+    /* ── Mobile layout ── */
+    @media (max-width: 768px) {
+      .income-grid { grid-template-columns: 1fr; }
+      .income-section { padding: 0 16px; }
+      .expense-section { padding: 0 16px; }
+      .income-section-header { flex-wrap: wrap; gap: 8px; }
+      header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+      .ical-input input { width: 140px; }
+    }
   </style>
 </head>
 <body>
@@ -1242,10 +1261,11 @@ function renderBookingsTab() {
   const today = new Date(); today.setHours(0,0,0,0);
   if (!bookings.length) return;
   const html = `
+    <div class="table-scroll-wrap">
     <table>
       <thead>
         <tr>
-          <th>Guest</th>
+          <th class="sticky-col">Guest</th>
           <th>Check-In</th>
           <th>Check-Out</th>
           <th>Duration</th>
@@ -1285,7 +1305,7 @@ function renderBookingsTab() {
             ${arrivalIsCustom ? `<span class="date-reset" onclick="saveCleaningDate('${prevUid}',''); this.previousElementSibling.value='${toInputDate(bookings[i-1].end)}'; this.previousElementSibling.classList.remove('date-custom'); this.remove();" title="Reset to checkout date">↺</span>` : ''}
           ` : `<span style="color:var(--muted);font-size:12px;">—</span>`;
           return `<tr>
-            <td><strong>${guestName(b)}</strong></td>
+            <td class="sticky-col"><strong>${guestName(b)}</strong></td>
             <td>${fmtDate(b.start)}</td>
             <td>${fmtDate(b.end)}</td>
             <td>${nights} night${nights!==1?'s':''}</td>
@@ -1305,7 +1325,8 @@ function renderBookingsTab() {
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
   document.getElementById('bookingsContent').innerHTML = html;
 }
 
@@ -1314,10 +1335,11 @@ function renderCleaningTab() {
   const today = new Date(); today.setHours(0,0,0,0);
   if (!bookings.length) return;
   const html = `
+    <div class="table-scroll-wrap">
     <table>
       <thead>
         <tr>
-          <th>Cleaning Date</th>
+          <th class="sticky-col">Cleaning Date</th>
           <th>After Guest</th>
           <th>Before Guest</th>
           <th>Window</th>
@@ -1338,7 +1360,7 @@ function renderCleaningTab() {
             : null;
           const assigned = assignments[b.uid];
           return `<tr>
-            <td>
+            <td class="sticky-col">
               <input type="date" class="date-input ${isCustom ? 'date-custom' : ''}"
                 value="${currentDate}"
                 data-default="${defaultDate}"
@@ -1375,7 +1397,8 @@ function renderCleaningTab() {
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
   document.getElementById('cleaningContent').innerHTML = html;
 }
 
@@ -1389,10 +1412,11 @@ function renderGuestsTab() {
         ℹ️ <strong>Note:</strong> Airbnb restricts direct API access to guest messages. Use the links below to open each guest's conversation directly in the Airbnb Hosting inbox.
       </div>
     </div>
+    <div class="table-scroll-wrap">
     <table>
       <thead>
         <tr>
-          <th>Guest</th>
+          <th class="sticky-col">Guest</th>
           <th>Check-In</th>
           <th>Check-Out</th>
           <th>Status</th>
@@ -1404,7 +1428,7 @@ function renderGuestsTab() {
         ${bookings.map(b => {
           const status = statusBadge(b, today);
           return `<tr>
-            <td><strong>${guestName(b)}</strong></td>
+            <td class="sticky-col"><strong>${guestName(b)}</strong></td>
             <td>${fmtDate(b.start)}</td>
             <td>${fmtDate(b.end)}</td>
             <td>${status}</td>
@@ -1421,7 +1445,8 @@ function renderGuestsTab() {
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
   document.getElementById('guestsContent').innerHTML = html;
 }
 
@@ -2120,7 +2145,7 @@ function renderRentTracker() {
       : '';
 
     return `<tr>
-      <td>
+      <td class="sticky-col">
         <strong>${escHtml(t.name)}</strong>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escHtml(t.address||'—')}</div>
       </td>
@@ -2135,7 +2160,7 @@ function renderRentTracker() {
     <table class="rent-table">
       <thead>
         <tr>
-          <th>Tenant / Address</th>
+          <th class="sticky-col">Tenant / Address</th>
           <th>Rent</th>
           <th>Method</th>
           ${monthHeaders}
