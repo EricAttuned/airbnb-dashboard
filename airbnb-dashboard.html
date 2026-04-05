@@ -1173,9 +1173,30 @@ function saveCleaningDate(uid, val) {
 
 // ── Cleaner contact info ──────────────────────────────────────────────────────
 const CLEANERS = {
-  Karla:     { phone: '+15107986961', display: '+1 (510) 798-6961' },
-  Priscilla: { phone: '+17326214778', display: '+1 (732) 621-4778' },
+  Karla:     { phone: '+15107986961', display: '+1 (510) 798-6961', window: '12-4pm' },
+  Priscilla: { phone: '+17326214778', display: '+1 (732) 621-4778', window: '11-4pm' },
 };
+
+// Karla's known checkout dates — auto-assigned on every sync if not already assigned
+const KARLA_DEFAULT_DATES = new Set([
+  '2026-03-23','2026-03-27','2026-03-29',
+  '2026-04-05','2026-04-09','2026-04-19',
+  '2026-05-14','2026-05-19','2026-05-25',
+  '2026-06-04','2026-06-07','2026-06-18',
+  '2026-08-15',
+]);
+
+function applyDefaultAssignments() {
+  let changed = false;
+  for (const b of bookings) {
+    const dateStr = toInputDate(b.end);
+    if (KARLA_DEFAULT_DATES.has(dateStr) && !assignments[b.uid]) {
+      assignments[b.uid] = 'Karla';
+      changed = true;
+    }
+  }
+  if (changed) saveState();
+}
 
 // ── iCal parsing ──────────────────────────────────────────────────────────────
 async function loadIcal(silent) {
@@ -1263,6 +1284,7 @@ function loadDemoData() {
 
 // ── Render all ────────────────────────────────────────────────────────────────
 function renderAll() {
+  applyDefaultAssignments();
   renderStats();
   renderCleanerSummary();
   renderBookingsTab();
@@ -1324,9 +1346,8 @@ function renderBookingsTab() {
     <table>
       <thead>
         <tr>
-          <th class="sticky-col">Guest</th>
+          <th class="sticky-col">Check-Out</th>
           <th>Check-In</th>
-          <th>Check-Out</th>
           <th>Duration</th>
           <th>Status</th>
           <th>Cleaner</th>
@@ -1365,10 +1386,15 @@ function renderBookingsTab() {
               title="${arrivalIsCustom ? 'Custom date (checkout is ' + fmtDate(bookings[i-1].end) + ')' : 'Defaults to checkout date — click to change'}">
             ${arrivalIsCustom ? `<span class="date-reset" onclick="saveCleaningDate('${prevUid}',''); this.previousElementSibling.value='${toInputDate(bookings[i-1].end)}'; this.previousElementSibling.classList.remove('date-custom'); this.remove();" title="Reset to checkout date">↺</span>` : ''}
           ` : `<span style="color:var(--muted);font-size:12px;">—</span>`;
+          // Compact guest tag shown under the check-out date
+          const guestTag = b.phone4
+            ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;">···${b.phone4}</div>`
+            : b.resCode
+              ? `<div style="font-size:10px;color:var(--muted);font-family:monospace;margin-top:2px;">···${b.resCode.slice(-4)}</div>`
+              : '';
           return `<tr>
-            <td class="sticky-col"><strong>${guestName(b)}</strong></td>
-            <td>${fmtDate(b.start)}</td>
-            <td>${fmtDate(b.end)}</td>
+            <td class="sticky-col" style="white-space:nowrap;">${fmtDate(b.end)}${guestTag}</td>
+            <td style="white-space:nowrap;">${fmtDate(b.start)}</td>
             <td>${nights} night${nights!==1?'s':''}</td>
             <td>${status}</td>
             <td>${cleanerBtns}</td>
@@ -1564,11 +1590,12 @@ function messageModal(name, phone, bookingUid) {
       .filter(b => assignments[b.uid] === name && cleaningDate(b) >= today)
       .sort((a, b) => cleaningDate(a) - cleaningDate(b));
     if (upcoming.length) {
+      const win = CLEANERS[name]?.window || '11-4pm';
       const lines = upcoming.map(b => {
         const cd = cleaningDate(b);
         const mm = String(cd.getMonth() + 1).padStart(2, '0');
         const dd = String(cd.getDate()).padStart(2, '0');
-        return `-${mm}/${dd}: 11-4pm`;
+        return `-${mm}/${dd}: ${win}`;
       });
       prefill = `Here is the updated cleaning schedule:\n${lines.join('\n')}`;
     } else {
