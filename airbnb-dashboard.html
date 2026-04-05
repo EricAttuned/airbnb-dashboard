@@ -1589,9 +1589,8 @@ function messageModal(name, phone, bookingUid) {
       const win = CLEANERS[name]?.window || '11-4pm';
       const lines = upcoming.map(b => {
         const cd = cleaningDate(b);
-        const mm = String(cd.getMonth() + 1).padStart(2, '0');
-        const dd = String(cd.getDate()).padStart(2, '0');
-        return `-${mm}/${dd}: ${win}`;
+        const label = cd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `${label}: ${win}`;
       });
       prefill = `Here is the updated cleaning schedule:\n${lines.join('\n')}`;
     } else {
