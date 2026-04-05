@@ -1567,13 +1567,15 @@ function saveNote(uid, value) {
 // ── Message Modal ─────────────────────────────────────────────────────────────
 let currentRecipient = null;
 
-function messageModal(name, phone, bookingUid) {
+function messageModal(name, phone, bookingUid, customMessage) {
   currentRecipient = { name, phone };
   document.getElementById('modalName').textContent = name;
   document.getElementById('modalNumber').textContent = CLEANERS[name]?.display || phone;
 
   let prefill = '';
-  if (bookingUid) {
+  if (customMessage) {
+    prefill = customMessage;
+  } else if (bookingUid) {
     // Single-booking message (from Cleaning tab)
     const b = bookings.find(x => x.uid === bookingUid);
     if (b) {
@@ -1681,6 +1683,24 @@ document.getElementById('msgModal').addEventListener('click', function(e) {
 
 // ── Rent state ───────────────────────────────────────────────────────────────
 let tenants = [];
+let tenantPhones = JSON.parse(localStorage.getItem('tenantPhones') || '{}');
+
+function saveTenantPhone(id, phone) {
+  tenantPhones[id] = phone;
+  localStorage.setItem('tenantPhones', JSON.stringify(tenantPhones));
+}
+
+function textTenant(tenantId, firstName) {
+  let phone = tenantPhones[tenantId];
+  if (!phone) {
+    phone = prompt(`Enter ${firstName}'s phone number:`);
+    if (!phone) return;
+    saveTenantPhone(tenantId, phone.trim());
+  }
+  const msg = `Hi ${firstName}, just sending a friendly reminder to send rent for the month. Thank you.`;
+  messageModal(firstName, phone.trim(), null, msg);
+}
+
 // rentPayments: { "tenantId-YYYY-MM": "paid"|"pending"|"unpaid"|"na" }
 let rentPayments = JSON.parse(localStorage.getItem('rentPayments') || '{}');
 let gmailToken = null;   // OAuth access token once signed in
@@ -2241,9 +2261,12 @@ function renderRentTracker() {
       : 'No email info — add Col J (sender) or Col K (subject)';
     const scanBtn = `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;${canScan ? '' : 'opacity:0.4;cursor:not-allowed;'}"
       onclick="${canScan ? `gmailScanOne('${t.id}')` : ''}" title="${escHtml(scanTitle)}">🔍</button>`;
+    const firstName = escHtml(t.name.split(' ')[0]);
     const emailLink = t.notifEmail
       ? `<a href="mailto:${t.notifEmail}?subject=${encodeURIComponent(t.emailSubj||'Rent Payment')}" style="color:var(--red);font-size:13px;text-decoration:none;" title="Email ${t.notifEmail}">✉️</a>`
       : '';
+    const textBtn = `<button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;"
+      onclick="textTenant('${t.id}', '${firstName}')" title="Send rent reminder text">💬</button>`;
 
     return `<tr>
       <td class="sticky-col">
@@ -2253,7 +2276,7 @@ function renderRentTracker() {
       <td><span class="rent-amount">${escHtml(amtDisplay)}</span><div style="font-size:11px;color:var(--muted);">/mo</div></td>
       <td>${methodBadge}</td>
       ${monthCells}
-      <td style="white-space:nowrap;display:flex;gap:6px;align-items:center;padding-top:16px;">${emailLink}${scanBtn}</td>
+      <td style="white-space:nowrap;display:flex;gap:6px;align-items:center;padding-top:16px;">${emailLink}${textBtn}${scanBtn}</td>
     </tr>`;
   }).join('');
 
