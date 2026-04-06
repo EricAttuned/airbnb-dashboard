@@ -672,6 +672,19 @@
       header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
       .ical-input input { width: 140px; }
     }
+    /* ── Compliance tab ─────────────────────────────────── */
+    .comp-stat { background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px; }
+    .comp-stat .label { font-size:11px;color:var(--muted);margin-bottom:4px; }
+    .comp-stat .value { font-size:22px;font-weight:700;color:var(--text); }
+    .comp-stat .value.green { color:#059669; }
+    .comp-stat .value.red   { color:#dc2626; }
+    .comp-stat .value.amber { color:#d97706; }
+    .comp-badge { font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap; }
+    .comp-badge.complete { background:#d1fae5;color:#065f46; }
+    .comp-badge.overdue  { background:#fee2e2;color:#b91c1c; }
+    .comp-badge.soon     { background:#fef3c7;color:#92400e; }
+    .comp-badge.pending  { background:#f3f4f6;color:#6b7280; }
+    .comp-penalty { background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;font-size:12px;color:#78350f;margin:10px 0; }
   </style>
 </head>
 <body>
@@ -685,10 +698,7 @@
     <h1>Property <span>Dashboard</span></h1>
   </div>
   <div class="header-actions">
-    <div class="ical-input">
-      <input type="text" id="icalUrl" placeholder="Paste Airbnb iCal URL…" />
-      <button class="btn btn-primary" onclick="loadIcal()">&#8635; Sync</button>
-    </div>
+    <button class="btn btn-primary" onclick="loadIcal()">&#8635; Sync Airbnb</button>
     <button class="btn btn-outline btn-sm" onclick="loadDemoData()">Demo Data</button>
   </div>
 </header>
@@ -776,6 +786,7 @@
       <div class="tab active" onclick="switchTab('bookings', this)">📅 Bookings</div>
       <div class="tab" onclick="switchTab('cleaning', this)">🧹 Cleaning Schedule</div>
       <div class="tab" onclick="switchTab('guests', this)">💬 Guest Communications</div>
+      <div class="tab" onclick="switchTab('compliance', this)">📋 Compliance</div>
     </div>
 
     <!-- BOOKINGS TAB -->
@@ -783,7 +794,7 @@
       <div id="bookingsContent">
         <div class="empty-state">
           <div class="icon">📅</div>
-          <p>Paste your Airbnb iCal URL above and click <strong>Sync</strong>, or try <strong>Demo Data</strong>.</p>
+          <p>Click <strong>Sync Airbnb</strong> to load upcoming bookings, or try <strong>Demo Data</strong>.</p>
         </div>
       </div>
     </div>
@@ -807,8 +818,67 @@
         </div>
       </div>
     </div>
+
+    <!-- COMPLIANCE TAB -->
+    <div id="tab-compliance" class="tab-content">
+      <div style="padding:16px 0;">
+
+        <!-- Summary cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" id="complianceSummary"></div>
+
+        <!-- Overdue alert -->
+        <div id="complianceOverdueAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#b91c1c;"></div>
+
+        <!-- Filters -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+          <select id="compFilterStatus" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
+            <option value="ALL">All statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="OVERDUE">Overdue</option>
+            <option value="COMPLETE">Complete</option>
+          </select>
+          <select id="compFilterProp" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
+            <option value="ALL">All properties</option>
+            <option value="Tenth St">Tenth St</option>
+            <option value="California St">California St</option>
+            <option value="Chaucer St">Chaucer St</option>
+          </select>
+          <span id="compFilterCount" style="font-size:12px;color:var(--muted);margin-left:auto;"></span>
+          <button class="btn btn-sm btn-outline" onclick="resetComplianceData()" style="font-size:11px;" title="Re-seed this year's obligations">↺ Re-seed FY2026</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-scroll-wrap">
+          <table class="data-table" id="complianceTable">
+            <thead>
+              <tr>
+                <th>Obligation</th>
+                <th>Property / Unit</th>
+                <th>Due Date</th>
+                <th>Delinquent</th>
+                <th>Status</th>
+                <th>FY</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="complianceTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
+
+<!-- Compliance detail modal -->
+<div class="modal-overlay" id="compModal" style="display:none;" onclick="if(event.target===this)closeCompModal()">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <span id="compModalTitle" style="font-weight:600;font-size:15px;"></span>
+      <button class="modal-close" onclick="closeCompModal()">×</button>
+    </div>
+    <div id="compModalBody" style="padding:16px 20px;font-size:13px;"></div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!--  TENANT RENT TRACKER                                                    -->
@@ -1184,11 +1254,10 @@ function applyDefaultAssignments() {
 }
 
 // ── iCal parsing ──────────────────────────────────────────────────────────────
+const ICAL_URL = 'https://www.airbnb.com/calendar/ical/1091351118417823262.ics?t=668514fb399a442bb3353eb11a272d35&locale=en';
+
 async function loadIcal(silent) {
-  const url = document.getElementById('icalUrl').value.trim();
-  if (!url) { showToast('Please paste an iCal URL first.'); return; }
-  // Save URL for auto-reload next time
-  localStorage.setItem('icalUrl', url);
+  const url = ICAL_URL;
   if (!silent) showLoading();
   try {
     // Use Netlify function proxy to fetch the iCal (avoids CORS)
@@ -3313,13 +3382,8 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(r => r.json())
     .catch(() => ({}))
     .then(cfg => {
-      // iCal URL — env var as default, localStorage overrides
-      const icalUrl = localStorage.getItem('icalUrl') || cfg.icalUrl || '';
-      if (icalUrl) {
-        document.getElementById('icalUrl').value = icalUrl;
-        if (!localStorage.getItem('icalUrl')) localStorage.setItem('icalUrl', icalUrl);
-        loadIcal(true);
-      }
+      // Auto-load iCal on startup (URL hardcoded)
+      loadIcal(true);
 
       // Restore CSV URL / Gmail fields — localStorage overrides env vars
       const DEFAULT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlQcRCsW0dvsmzKfrYJXGZ2up8U9t1BiQ_EBIoqR2qBt3HFgYN-ugdH8WAQAzH8KGLIeghu7pbQPyx/pub?gid=0&single=true&output=csv';
@@ -3352,7 +3416,295 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Pre-fill expense date to today
   document.getElementById('expDate').value = new Date().toISOString().slice(0, 10);
+
+  // Seed compliance data on first load
+  initComplianceData();
+  renderComplianceTab();
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  COMPLIANCE TAB
+// ══════════════════════════════════════════════════════════════════════════════
+
+const COMPLIANCE_PROPERTIES = [
+  { id: 'prop-tenth',      nickname: 'Tenth St',      address: '2439 Tenth St, Berkeley, CA',         type: 'TRIPLEX', ownerType: 'MANAGED', ownerName: 'Dad',  isRentBoardExempt: false },
+  { id: 'prop-california', nickname: 'California St', address: '2434–2436 California St, Berkeley, CA', type: 'TRIPLEX', ownerType: 'MANAGED', ownerName: 'Dad',  isRentBoardExempt: false },
+  { id: 'prop-chaucer',    nickname: 'Chaucer St',    address: '1112–1114 Chaucer St, Berkeley, CA',   type: 'DUPLEX',  ownerType: 'OWNED',   ownerName: null,   isRentBoardExempt: true  },
+];
+
+const COMPLIANCE_UNITS = [
+  // Tenth St
+  { id: 'unit-tenth-house', propertyId: 'prop-tenth',      label: 'House',  building: 'Main',  rentalType: 'LONG_TERM' },
+  { id: 'unit-tenth-a',     propertyId: 'prop-tenth',      label: 'Unit A', building: 'Back',  rentalType: 'LONG_TERM' },
+  { id: 'unit-tenth-b',     propertyId: 'prop-tenth',      label: 'Unit B', building: 'Back',  rentalType: 'LONG_TERM' },
+  // California St
+  { id: 'unit-calif-house', propertyId: 'prop-california', label: 'House',  building: 'Main',  rentalType: 'LONG_TERM' },
+  { id: 'unit-calif-a',     propertyId: 'prop-california', label: 'Unit A', building: 'Back',  rentalType: 'LONG_TERM' },
+  { id: 'unit-calif-b',     propertyId: 'prop-california', label: 'Unit B', building: 'Back',  rentalType: 'LONG_TERM' },
+  // Chaucer St
+  { id: 'unit-chaucer-1112', propertyId: 'prop-chaucer',   label: '1112',   building: null,    rentalType: 'SHORT_TERM' },
+  { id: 'unit-chaucer-1114', propertyId: 'prop-chaucer',   label: '1114',   building: null,    rentalType: 'LONG_TERM'  },
+];
+
+const OBLIGATION_META = {
+  RENT_BOARD_REGISTRATION:  { label: 'Rent Board Registration',       penalty: '100% penalty if one day late; doubles every 6 months.' },
+  BUSINESS_LICENSE_TAX:     { label: 'Business License Tax',          penalty: 'Late penalties; contractors can\'t pull permits.' },
+  RHSP_SELF_INSPECTION:     { label: 'RHSP Schedule A Inspection',    penalty: '$200/unit fine if missing during City inspection.' },
+  SECURITY_DEPOSIT_INTEREST:{ label: 'Security Deposit Interest',     penalty: 'Tenant may deduct 10% of full deposit from any rent.' },
+  PROPERTY_TAX_INSTALLMENT_1: { label: 'Property Tax — 1st Installment', penalty: '10% penalty after Dec 10 at 5pm. No grace periods.' },
+  PROPERTY_TAX_INSTALLMENT_2: { label: 'Property Tax — 2nd Installment', penalty: '10% penalty + $10 after Apr 10 at 5pm. No grace periods.' },
+  STR_ZONING_CERT:          { label: 'STR Zoning Certificate',        penalty: 'STR operation without valid certificate is a code violation.' },
+};
+
+let complianceRecords = [];
+
+function generateFY2026Records() {
+  const fy = 2026;
+  const records = [];
+  let seq = 0;
+  const id = (prefix) => `comp-${prefix}-${++seq}`;
+
+  for (const p of COMPLIANCE_PROPERTIES) {
+    // Property tax both installments (all properties)
+    records.push({ id: id('ptax1'), propertyId: p.id, unitId: null, obligationType: 'PROPERTY_TAX_INSTALLMENT_1', fiscalYear: fy, dueDate: `${fy}-11-01`, delinquentDate: `${fy}-12-10`, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+    records.push({ id: id('ptax2'), propertyId: p.id, unitId: null, obligationType: 'PROPERTY_TAX_INSTALLMENT_2', fiscalYear: fy, dueDate: `${fy+1}-02-01`, delinquentDate: `${fy+1}-04-10`, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+    // Business license tax (triplexes only)
+    if (p.type === 'TRIPLEX') {
+      records.push({ id: id('blt'), propertyId: p.id, unitId: null, obligationType: 'BUSINESS_LICENSE_TAX', fiscalYear: fy, dueDate: `${fy+1}-03-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+    }
+    // Per-unit records
+    for (const u of COMPLIANCE_UNITS.filter(u => u.propertyId === p.id)) {
+      // RHSP all units
+      records.push({ id: id('rhsp'), propertyId: null, unitId: u.id, obligationType: 'RHSP_SELF_INSPECTION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+      // Rent Board registration (non-exempt, long-term)
+      if (!p.isRentBoardExempt && u.rentalType === 'LONG_TERM') {
+        records.push({ id: id('rbreg'), propertyId: null, unitId: u.id, obligationType: 'RENT_BOARD_REGISTRATION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+        records.push({ id: id('sdi'), propertyId: null, unitId: u.id, obligationType: 'SECURITY_DEPOSIT_INTEREST', fiscalYear: fy, dueDate: `${fy+1}-01-31`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+      }
+      // STR zoning cert (short-term units)
+      if (u.rentalType === 'SHORT_TERM') {
+        records.push({ id: id('str'), propertyId: null, unitId: u.id, obligationType: 'STR_ZONING_CERT', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+      }
+    }
+  }
+  return records;
+}
+
+function initComplianceData() {
+  const saved = localStorage.getItem('complianceRecords');
+  if (saved) {
+    try { complianceRecords = JSON.parse(saved); return; } catch(_) {}
+  }
+  complianceRecords = generateFY2026Records();
+  saveComplianceData();
+}
+
+function saveComplianceData() {
+  localStorage.setItem('complianceRecords', JSON.stringify(complianceRecords));
+}
+
+function resetComplianceData() {
+  if (!confirm('Re-seed FY2026 compliance records? This will NOT delete any already-completed items.')) return;
+  const existing = complianceRecords;
+  const fresh = generateFY2026Records();
+  // Merge: keep completed status from existing records
+  const merged = fresh.map(f => {
+    const old = existing.find(e => e.obligationType === f.obligationType && e.unitId === f.unitId && e.propertyId === f.propertyId && e.fiscalYear === f.fiscalYear);
+    return old ? { ...f, status: old.status, completedAt: old.completedAt, amountPaid: old.amountPaid, notes: old.notes } : f;
+  });
+  complianceRecords = merged;
+  saveComplianceData();
+  renderComplianceTab();
+  showToast('✅ Compliance records refreshed');
+}
+
+function compStatus(r) {
+  if (r.completedAt) return 'COMPLETE';
+  const deadline = r.delinquentDate || r.dueDate;
+  if (new Date(deadline) < new Date()) return 'OVERDUE';
+  return 'PENDING';
+}
+
+function daysUntil(dateStr) {
+  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
+function compBadge(r) {
+  const s = compStatus(r);
+  if (s === 'COMPLETE') return '<span class="comp-badge complete">✅ Complete</span>';
+  if (s === 'OVERDUE')  return '<span class="comp-badge overdue">⚠️ Overdue</span>';
+  const deadline = r.delinquentDate || r.dueDate;
+  const days = daysUntil(deadline);
+  if (days <= 30) return `<span class="comp-badge soon">Due in ${days}d</span>`;
+  return `<span class="comp-badge pending">In ${days}d</span>`;
+}
+
+function fmtCompDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function propName(r) {
+  if (r.propertyId) {
+    return COMPLIANCE_PROPERTIES.find(p => p.id === r.propertyId)?.nickname || '';
+  }
+  if (r.unitId) {
+    const u = COMPLIANCE_UNITS.find(u => u.id === r.unitId);
+    if (!u) return '';
+    return COMPLIANCE_PROPERTIES.find(p => p.id === u.propertyId)?.nickname || '';
+  }
+  return '';
+}
+
+function unitLabel(r) {
+  if (!r.unitId) return '';
+  return COMPLIANCE_UNITS.find(u => u.id === r.unitId)?.label || '';
+}
+
+function renderComplianceTab() {
+  const filterStatus = document.getElementById('compFilterStatus')?.value || 'ALL';
+  const filterProp   = document.getElementById('compFilterProp')?.value || 'ALL';
+
+  const today = new Date();
+
+  // Compute live statuses
+  const records = complianceRecords.map(r => ({ ...r, _status: compStatus(r) }));
+
+  // Summary
+  const total    = records.length;
+  const complete = records.filter(r => r._status === 'COMPLETE').length;
+  const overdue  = records.filter(r => r._status === 'OVERDUE').length;
+  const pending  = records.filter(r => r._status === 'PENDING').length;
+
+  const summaryEl = document.getElementById('complianceSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="comp-stat"><div class="label">Total</div><div class="value">${total}</div></div>
+      <div class="comp-stat"><div class="label">Complete</div><div class="value green">${complete}</div></div>
+      <div class="comp-stat"><div class="label">Pending</div><div class="value amber">${pending}</div></div>
+      <div class="comp-stat"><div class="label">Overdue</div><div class="value ${overdue > 0 ? 'red' : ''}">${overdue}</div></div>
+    `;
+  }
+
+  // Overdue alert
+  const overdueEl = document.getElementById('complianceOverdueAlert');
+  if (overdueEl) {
+    const overdueItems = records.filter(r => r._status === 'OVERDUE');
+    if (overdueItems.length) {
+      overdueEl.style.display = 'block';
+      overdueEl.innerHTML = `<strong>⚠️ ${overdueItems.length} overdue item${overdueItems.length > 1 ? 's' : ''}:</strong> ` +
+        overdueItems.map(r => `${OBLIGATION_META[r.obligationType]?.label || r.obligationType} — ${propName(r)}${unitLabel(r) ? ' / ' + unitLabel(r) : ''}`).join('; ');
+    } else {
+      overdueEl.style.display = 'none';
+    }
+  }
+
+  // Filter
+  const filtered = records.filter(r => {
+    if (filterStatus !== 'ALL' && r._status !== filterStatus) return false;
+    if (filterProp !== 'ALL' && propName(r) !== filterProp) return false;
+    return true;
+  }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+  const countEl = document.getElementById('compFilterCount');
+  if (countEl) countEl.textContent = `${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+
+  const tbody = document.getElementById('complianceTbody');
+  if (!tbody) return;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No records match this filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const meta = OBLIGATION_META[r.obligationType] || { label: r.obligationType.replace(/_/g,' ') };
+    const pn = propName(r);
+    const ul = unitLabel(r);
+    return `<tr>
+      <td style="white-space:nowrap;">${meta.label}<br><span style="font-size:10px;color:var(--muted);">${r.fiscalYear}</span></td>
+      <td>${escHtml(pn)}${ul ? '<br><span style="font-size:11px;color:var(--muted);">' + escHtml(ul) + '</span>' : ''}</td>
+      <td style="white-space:nowrap;">${fmtCompDate(r.dueDate)}</td>
+      <td style="white-space:nowrap;">${r.delinquentDate ? '<span style="color:#b91c1c;font-weight:500;">' + fmtCompDate(r.delinquentDate) + '</span>' : '—'}</td>
+      <td>${compBadge(r)}</td>
+      <td style="color:var(--muted);">${r.fiscalYear}</td>
+      <td><button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="openCompModal('${r.id}')">${r.completedAt ? 'View' : 'Mark done'}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+let compModalId = null;
+
+function openCompModal(id) {
+  const r = complianceRecords.find(r => r.id === id);
+  if (!r) return;
+  compModalId = id;
+  const meta = OBLIGATION_META[r.obligationType] || { label: r.obligationType.replace(/_/g,' '), penalty: '' };
+  const pn = propName(r);
+  const ul = unitLabel(r);
+  document.getElementById('compModalTitle').textContent = meta.label;
+
+  let body = `
+    <div style="margin-bottom:8px;"><span style="color:var(--muted);">Property: </span><strong>${escHtml(pn)}${ul ? ' / ' + escHtml(ul) : ''}</strong></div>
+    <div style="margin-bottom:8px;"><span style="color:var(--muted);">Due: </span>${fmtCompDate(r.dueDate)}</div>
+    ${r.delinquentDate ? `<div style="margin-bottom:8px;"><span style="color:var(--muted);">Delinquent: </span><strong style="color:#b91c1c;">${fmtCompDate(r.delinquentDate)}</strong></div>` : ''}
+    <div class="comp-penalty"><strong>⚠️ Penalty if missed:</strong><br>${escHtml(meta.penalty)}</div>
+  `;
+
+  if (r.completedAt) {
+    body += `
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;margin-bottom:12px;">
+        ✅ Completed on ${fmtCompDate(r.completedAt)}${r.amountPaid != null ? ` — $${Number(r.amountPaid).toFixed(2)} paid` : ''}
+        ${r.notes ? `<div style="margin-top:4px;font-size:12px;">${escHtml(r.notes)}</div>` : ''}
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="reopenComp('${r.id}')" style="font-size:12px;">Reopen</button>
+    `;
+  } else {
+    body += `
+      <div style="margin-top:12px;">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Amount paid (optional)</label>
+        <input type="number" id="compAmount" placeholder="0.00" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;width:140px;margin-bottom:8px;" />
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Notes (optional)</label>
+        <input type="text" id="compNotes" placeholder="Confirmation #, method…" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;width:100%;" />
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;background:#059669;border-color:#059669;" onclick="markCompComplete('${r.id}')">✅ Mark Complete</button>
+    `;
+  }
+
+  document.getElementById('compModalBody').innerHTML = body;
+  document.getElementById('compModal').style.display = 'flex';
+}
+
+function closeCompModal() {
+  document.getElementById('compModal').style.display = 'none';
+  compModalId = null;
+}
+
+function markCompComplete(id) {
+  const r = complianceRecords.find(r => r.id === id);
+  if (!r) return;
+  const amount = document.getElementById('compAmount')?.value;
+  const notes  = document.getElementById('compNotes')?.value;
+  r.completedAt = new Date().toISOString();
+  r.status = 'COMPLETE';
+  r.amountPaid = amount ? parseFloat(amount) : null;
+  r.notes = notes || null;
+  saveComplianceData();
+  closeCompModal();
+  renderComplianceTab();
+  showToast('✅ Marked complete');
+}
+
+function reopenComp(id) {
+  const r = complianceRecords.find(r => r.id === id);
+  if (!r) return;
+  r.completedAt = null;
+  r.amountPaid = null;
+  r.status = 'PENDING';
+  saveComplianceData();
+  closeCompModal();
+  renderComplianceTab();
+}
 </script>
 </body>
 </html>
