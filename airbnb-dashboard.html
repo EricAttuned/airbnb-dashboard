@@ -1146,7 +1146,20 @@
 
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
-let bookings = [];
+// Restore cached bookings immediately so assignments render on page load
+// without waiting for the iCal network fetch to complete.
+function loadCachedBookings() {
+  try {
+    const raw = localStorage.getItem('bookingsCache');
+    if (!raw) return [];
+    return JSON.parse(raw).map(b => ({
+      ...b,
+      start: new Date(b.start),
+      end:   new Date(b.end),
+    }));
+  } catch(_) { return []; }
+}
+let bookings = loadCachedBookings();
 let assignments    = JSON.parse(localStorage.getItem('assignments')    || '{}');
 let notes          = JSON.parse(localStorage.getItem('notes')          || '{}');
 let cleaningDates  = JSON.parse(localStorage.getItem('cleaningDates')  || '{}'); // uid -> 'YYYY-MM-DD'
@@ -1226,6 +1239,7 @@ async function loadIcal(silent) {
     if (!resp.ok) throw new Error('Failed to fetch');
     const text = await resp.text();
     bookings = parseIcal(text);
+    localStorage.setItem('bookingsCache', JSON.stringify(bookings));
     renderAll();
     if (!silent) showToast(`✅ Synced ${bookings.length} bookings`);
   } catch (e) {
@@ -3342,7 +3356,9 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(r => r.json())
     .catch(() => ({}))
     .then(cfg => {
-      // Auto-load iCal on startup (URL hardcoded)
+      // Render from cache immediately so assignments show before network fetch
+      if (bookings.length) renderAll();
+      // Then fetch fresh iCal in the background
       loadIcal(true);
 
       // Hardcoded credentials — no user input needed
