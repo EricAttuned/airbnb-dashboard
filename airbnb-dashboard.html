@@ -831,14 +831,12 @@
   <!-- Config panel -->
   <div class="rent-config-panel" id="rentConfigPanel">
 
-    <!-- Row 1: Google Sheets API -->
+    <!-- Row 1: Published CSV URL -->
     <div class="rent-config-row">
-      <span class="rent-config-label">📊 Google Sheet</span>
-      <input type="text" id="sheetId"
-        placeholder="Sheet ID  (from the URL: /spreadsheets/d/SHEET_ID/edit)" />
-      <input type="text" id="sheetsApiKey"
-        placeholder="Google API Key" style="max-width:260px;" />
-      <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" onclick="rentLoadSheet()">&#8635; Load Sheet</button>
+      <span class="rent-config-label">📊 Renter CSV</span>
+      <input type="text" id="csvUrl" style="flex:1;min-width:0;"
+        placeholder="Published CSV URL (Google Sheets: File → Share → Publish to web → CSV)" />
+      <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" onclick="rentLoadSheet()">&#8635; Load</button>
     </div>
 
     <!-- Row 2: Gmail OAuth -->
@@ -870,38 +868,25 @@
 
   <!-- Setup instructions (collapsible) -->
   <div id="sheetHelp" style="display:none;background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:16px 20px;margin-bottom:16px;font-size:13px;color:#78350f;line-height:1.7;">
-    <strong>Step 1 — Create a Google Cloud project &amp; enable APIs</strong>
+    <strong>Step 1 — Publish your Google Sheet as CSV</strong>
     <ol style="margin:6px 0 10px 18px;">
-      <li>Go to <a href="https://console.cloud.google.com/" target="_blank" style="color:#b45309;">console.cloud.google.com</a> and create a new project.</li>
-      <li>Enable <strong>Google Sheets API</strong> and <strong>Gmail API</strong> (search in "APIs &amp; Services → Library").</li>
+      <li>Open your Google Sheet → <strong>File → Share → Publish to web</strong>.</li>
+      <li>Choose the correct sheet/tab, set format to <strong>Comma-separated values (.csv)</strong>, and click <strong>Publish</strong>.</li>
+      <li>Copy the URL and paste it in the <em>Renter CSV</em> field above.</li>
     </ol>
-    <strong>Step 2 — Get an API Key (for Sheets, read-only)</strong>
+    <strong>Step 2 — Get an OAuth Client ID (for Gmail)</strong>
     <ol style="margin:6px 0 10px 18px;">
-      <li>Go to <strong>APIs &amp; Services → Credentials → Create Credentials → API Key</strong>.</li>
-      <li>Copy the key and paste it in the <em>Google API Key</em> field above.</li>
-      <li>Make sure your Google Sheet is set to <strong>"Anyone with the link can view"</strong> (Share → change access).</li>
+      <li>Go to <a href="https://console.cloud.google.com/" target="_blank" style="color:#b45309;">console.cloud.google.com</a>, create a project, and enable <strong>Gmail API</strong>.</li>
+      <li>Go to <strong>Credentials → Create Credentials → OAuth 2.0 Client ID</strong> (Web application).</li>
+      <li>Add your site's origin under <em>Authorized JavaScript origins</em>, copy the Client ID, paste above.</li>
     </ol>
-    <strong>Step 3 — Get an OAuth Client ID (for Gmail)</strong>
+    <strong>Step 3 — Enable auto-scan &amp; reminders</strong>
     <ol style="margin:6px 0 10px 18px;">
-      <li>Go to <strong>Credentials → Create Credentials → OAuth 2.0 Client ID</strong>.</li>
-      <li>Application type: <strong>Web application</strong>.</li>
-      <li>Under <em>Authorized JavaScript origins</em> add: <code style="font-size:11px;">http://localhost:8766</code></li>
-      <li>Copy the Client ID and paste it in the <em>OAuth Client ID</em> field above.</li>
-      <li>On the OAuth consent screen, add your Google account as a test user.</li>
-    </ol>
-    <strong>Step 4 — Enable auto-scan &amp; reminders</strong>
-    <ol style="margin:6px 0 10px 18px;">
-      <li>Enter your email in the <em>Reminders</em> field — you'll get a summary email on the 5th if any tenants haven't paid.</li>
+      <li>Enter your email in the <em>Reminders</em> field — you'll get a summary on the 5th if any tenants haven't paid.</li>
       <li>The dashboard auto-scans Gmail on days 1–5 of each month (after you sign in).</li>
-      <li>Payment detection is automatic based on the payment method (Venmo, Zelle, PayPal, etc.) or the sender/subject in your sheet.</li>
     </ol>
-    <strong>Sheet column layout:</strong> A=Address · C=Renter Name · G=Paid To (filter: "Eric") · H=Rent Amount · I=Your Notification Email · J=Tenant Sender Email (optional override) · K=Email Subject keyword (optional) · L=Payment Method<br>
-    <strong>Payment auto-detection (from address → subject searched):</strong><br>
-    Venmo: <code>venmo@venmo.com</code> → "<em>FirstName</em> paid you"<br>
-    Zelle: <code>no.reply.alerts@chase.co</code> → "You received money with Zelle"<br>
-    PayPal: <code>service@paypal.com</code> → "<em>FirstName</em> sent you"<br>
-    Cash App: <code>cash@square.com</code><br>
-    Override either by filling Col J (sender) or Col K (subject keyword) in your sheet.
+    <strong>CSV column layout:</strong> A=Address · C=Renter Name · F=Phone · G=Paid To (filter: "Eric") · H=Rent Amount · I=Your Notification Email · J=Tenant Sender Email (optional) · K=Email Subject keyword (optional) · L=Payment Method<br>
+    <strong>Payment auto-detection:</strong> Venmo: <code>venmo@venmo.com</code> · Zelle: <code>no.reply.alerts@chase.co</code> · PayPal: <code>service@paypal.com</code> · Cash App: <code>cash@square.com</code>
   </div>
 
   <!-- Rent stats row -->
@@ -936,7 +921,7 @@
     <div id="rentTableContent">
       <div class="rent-empty">
         <div class="icon">🏠</div>
-        <p>Enter your <strong>Sheet ID</strong> and <strong>API Key</strong> above, then click <strong>Load Sheet</strong>.<br>Sign in with Google to enable automatic payment detection from Gmail.</p>
+        <p>Paste your <strong>published CSV URL</strong> above and click <strong>Load</strong>.<br>Sign in with Google to enable automatic payment detection from Gmail.</p>
       </div>
     </div>
   </div>
@@ -1733,36 +1718,55 @@ function rentMonths() {
 }
 
 // ── Google Sheets API v4 ──────────────────────────────────────────────────────
-async function rentLoadSheet() {
-  const sheetId  = document.getElementById('sheetId').value.trim();
-  const apiKey   = document.getElementById('sheetsApiKey').value.trim();
-  if (!sheetId)  { showToast('Please enter the Google Sheet ID.'); return; }
-  if (!apiKey)   { showToast('Please enter a Google API Key.'); return; }
-
-  localStorage.setItem('rentSheetId',  sheetId);
-  localStorage.setItem('rentApiKey',   apiKey);
-
-  showToast('⏳ Loading sheet…');
-  try {
-    // Fetch columns A, C, G, H, I, J, K, L  (rows 2 onward — row 1 = header)
-    const range = encodeURIComponent('A2:L200');
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+// Simple CSV parser — handles quoted fields with embedded commas/newlines
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+        row.push(field); field = '';
+        if (row.some(c => c !== '')) rows.push(row);
+        row = [];
+        if (ch === '\r') i++;
+      } else { field += ch; }
     }
-    const data = await resp.json();
-    tenants = parseSheetRows(data.values || []);
+  }
+  if (field || row.length) { row.push(field); if (row.some(c => c !== '')) rows.push(row); }
+  return rows;
+}
+
+async function rentLoadSheet() {
+  const csvUrl = document.getElementById('csvUrl').value.trim();
+  if (!csvUrl) { showToast('Please enter the CSV URL.'); return; }
+
+  localStorage.setItem('rentCsvUrl', csvUrl);
+
+  showToast('⏳ Loading…');
+  try {
+    const proxyUrl = `/.netlify/functions/proxy?url=${encodeURIComponent(csvUrl)}`;
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    const allRows = parseCSV(text);
+    const dataRows = allRows.slice(1); // skip header row
+    tenants = parseSheetRows(dataRows);
     if (!tenants.length) {
       showToast('⚠️ No rows found where Column G contains "Eric".');
     } else {
-      showToast(`✅ Loaded ${tenants.length} tenant(s) from sheet`);
+      showToast(`✅ Loaded ${tenants.length} tenant(s)`);
     }
     saveRentState();
     renderRentTracker();
   } catch(e) {
-    showToast(`❌ Sheet error: ${e.message}`);
+    showToast(`❌ Load error: ${e.message}`);
     console.error(e);
   }
 }
@@ -3317,13 +3321,13 @@ window.addEventListener('DOMContentLoaded', () => {
         loadIcal(true);
       }
 
-      // Restore Sheet / API key / Gmail fields — localStorage overrides env vars
-      const savedId    = localStorage.getItem('rentSheetId')   || cfg.sheetsId      || '';
-      const savedKey   = localStorage.getItem('rentApiKey')    || cfg.sheetsApiKey  || '';
-      const savedCid   = localStorage.getItem('gmailClientId') || cfg.gmailClientId || '';
-      const savedEmail = localStorage.getItem('reminderEmail') || '';
-      if (savedId)    { document.getElementById('sheetId').value       = savedId;    localStorage.setItem('rentSheetId',   savedId); }
-      if (savedKey)   { document.getElementById('sheetsApiKey').value  = savedKey;   localStorage.setItem('rentApiKey',    savedKey); }
+      // Restore CSV URL / Gmail fields — localStorage overrides env vars
+      const DEFAULT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlQcRCsW0dvsmzKfrYJXGZ2up8U9t1BiQ_EBIoqR2qBt3HFgYN-ugdH8WAQAzH8KGLIeghu7pbQPyx/pub?gid=0&single=true&output=csv';
+      const savedCsvUrl = localStorage.getItem('rentCsvUrl') || DEFAULT_CSV_URL;
+      const savedCid    = localStorage.getItem('gmailClientId') || cfg.gmailClientId || '';
+      const savedEmail  = localStorage.getItem('reminderEmail') || '';
+      document.getElementById('csvUrl').value = savedCsvUrl;
+      localStorage.setItem('rentCsvUrl', savedCsvUrl);
       if (savedCid)   { document.getElementById('gmailClientId').value = savedCid;   localStorage.setItem('gmailClientId', savedCid); }
       if (savedEmail) document.getElementById('reminderEmail').value = savedEmail;
 
@@ -3333,8 +3337,8 @@ window.addEventListener('DOMContentLoaded', () => {
         try { tenants = JSON.parse(cachedTenants); renderRentTracker(); } catch(_) {}
       }
 
-      // Auto-load from sheet if credentials are saved
-      if (savedId && savedKey) rentLoadSheet();
+      // Auto-load from CSV
+      rentLoadSheet();
 
       // Auto-scan Gmail if we're in the 1st–5th window and user already signed in this session
       setTimeout(() => {
