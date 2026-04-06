@@ -524,6 +524,10 @@
       display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px;
       font-weight: 600; background: #eef2ff; color: #4f46e5; white-space: nowrap;
     }
+    .airbnb-source-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px;
+      font-weight: 600; background: #fff1f2; color: #e11d48; white-space: nowrap;
+    }
     /* ── Auto-Rules panel ── */
     .auto-rules-panel {
       background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
@@ -962,6 +966,10 @@
     <div class="income-summary-item">
       <div class="label">YTD Revenue</div>
       <div class="value income-positive" id="summaryRevenue">—</div>
+      <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;">
+        <div style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e11d48;margin-right:4px;"></span>Airbnb <strong id="summaryAirbnb" style="color:var(--text);">—</strong></div>
+        <div style="font-size:11px;color:var(--muted);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4f46e5;margin-right:4px;"></span>Rent <strong id="summaryRent" style="color:var(--text);">—</strong></div>
+      </div>
     </div>
     <div class="income-summary-item">
       <div class="label">YTD Expenses</div>
@@ -3018,7 +3026,9 @@ function renderIncomeStatement() {
 
   // Sort by date
   allRevRows.sort((a, b) => a.date.localeCompare(b.date));
-  const totalRevenue = allRevRows.reduce((s, r) => s + r.amount, 0);
+  const totalRevenue   = allRevRows.reduce((s, r) => s + r.amount, 0);
+  const airbnbRevenue  = allRevRows.filter(r => r.type === 'item').reduce((s, r) => s + r.amount, 0);
+  const rentRevenue    = allRevRows.filter(r => r.type === 'rent').reduce((s, r) => s + r.amount, 0);
 
   let revBodyHtml = '';
   if (allRevRows.length === 0) {
@@ -3034,7 +3044,7 @@ function renderIncomeStatement() {
         : `<button class="income-btn del" onclick="deleteRentRevenue('${r.tenantId}','${r.monthKey}')" title="Unmark as paid">✕</button>`;
       const badge = r.type === 'rent'
         ? ` <span class="rent-source-badge">rent</span>`
-        : '';
+        : ` <span class="airbnb-source-badge">airbnb</span>`;
       return `<tr>
         <td style="white-space:nowrap;color:var(--muted);font-size:12px;">${fmtDateShort(r.date)}</td>
         <td>${escHtml(r.label)}${badge}</td>
@@ -3178,6 +3188,8 @@ function renderIncomeStatement() {
   // ── YTD summary bar ────────────────────────────────────────────────────────
   const ytdNet = totalRevenue - totalExpenses;
   document.getElementById('summaryRevenue').textContent  = fmt$(totalRevenue);
+  document.getElementById('summaryAirbnb').textContent   = fmt$(airbnbRevenue);
+  document.getElementById('summaryRent').textContent     = fmt$(rentRevenue);
   document.getElementById('summaryExpenses').textContent = fmt$(totalExpenses);
   const netEl = document.getElementById('summaryNet');
   netEl.textContent = fmt$(ytdNet);
