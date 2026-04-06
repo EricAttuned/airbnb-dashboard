@@ -786,7 +786,6 @@
       <div class="tab active" onclick="switchTab('bookings', this)">📅 Bookings</div>
       <div class="tab" onclick="switchTab('cleaning', this)">🧹 Cleaning Schedule</div>
       <div class="tab" onclick="switchTab('guests', this)">💬 Guest Communications</div>
-      <div class="tab" onclick="switchTab('compliance', this)">📋 Compliance</div>
     </div>
 
     <!-- BOOKINGS TAB -->
@@ -819,54 +818,6 @@
       </div>
     </div>
 
-    <!-- COMPLIANCE TAB -->
-    <div id="tab-compliance" class="tab-content">
-      <div style="padding:16px 0;">
-
-        <!-- Summary cards -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;" id="complianceSummary"></div>
-
-        <!-- Overdue alert -->
-        <div id="complianceOverdueAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#b91c1c;"></div>
-
-        <!-- Filters -->
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
-          <select id="compFilterStatus" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
-            <option value="ALL">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="OVERDUE">Overdue</option>
-            <option value="COMPLETE">Complete</option>
-          </select>
-          <select id="compFilterProp" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
-            <option value="ALL">All properties</option>
-            <option value="Tenth St">Tenth St</option>
-            <option value="California St">California St</option>
-            <option value="Chaucer St">Chaucer St</option>
-          </select>
-          <span id="compFilterCount" style="font-size:12px;color:var(--muted);margin-left:auto;"></span>
-          <button class="btn btn-sm btn-outline" onclick="resetComplianceData()" style="font-size:11px;" title="Re-seed this year's obligations">↺ Re-seed FY2026</button>
-          <button class="btn btn-sm" style="font-size:11px;background:#2563eb;color:#fff;border:none;" onclick="sendComplianceReminderNow()" title="Send reminder email now">✉️ Email me now</button>
-        </div>
-
-        <!-- Table -->
-        <div class="table-scroll-wrap">
-          <table class="data-table" id="complianceTable">
-            <thead>
-              <tr>
-                <th>Obligation</th>
-                <th>Property / Unit</th>
-                <th>Due Date</th>
-                <th>Delinquent</th>
-                <th>Status</th>
-                <th>FY</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="complianceTbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   </div>
 </main>
 
@@ -1137,6 +1088,59 @@
     </table>
     </div>
     <div id="expenseEmpty" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No expenses added yet.</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  COMPLIANCE TRACKER                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="rent-section">
+  <div class="rent-section-header">
+    <div class="rent-section-title">📋 Compliance Tracker</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-sm" style="font-size:12px;background:#2563eb;color:#fff;border:none;" onclick="sendComplianceReminderNow()" title="Send reminder email now">✉️ Email me now</button>
+      <button class="btn btn-outline btn-sm" onclick="resetComplianceData()" style="font-size:12px;" title="Re-seed this year's obligations">↺ Re-seed FY2026</button>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;" id="complianceSummary"></div>
+
+  <!-- Overdue alert -->
+  <div id="complianceOverdueAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#b91c1c;"></div>
+
+  <!-- Filters -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+    <select id="compFilterStatus" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
+      <option value="ALL">All statuses</option>
+      <option value="PENDING">Pending</option>
+      <option value="OVERDUE">Overdue</option>
+      <option value="COMPLETE">Complete</option>
+    </select>
+    <select id="compFilterProp" onchange="renderComplianceTab()" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;">
+      <option value="ALL">All properties</option>
+      <option value="Tenth St">Tenth St</option>
+      <option value="California St">California St</option>
+      <option value="Chaucer St">Chaucer St</option>
+    </select>
+    <span id="compFilterCount" style="font-size:12px;color:var(--muted);margin-left:auto;"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-scroll-wrap">
+    <table class="data-table" id="complianceTable">
+      <thead>
+        <tr>
+          <th>Obligation</th>
+          <th>Property / Unit</th>
+          <th>Due Date</th>
+          <th>Delinquent</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="complianceTbody"></tbody>
+    </table>
   </div>
 </section>
 
