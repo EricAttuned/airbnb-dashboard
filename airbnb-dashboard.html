@@ -845,6 +845,7 @@
           </select>
           <span id="compFilterCount" style="font-size:12px;color:var(--muted);margin-left:auto;"></span>
           <button class="btn btn-sm btn-outline" onclick="resetComplianceData()" style="font-size:11px;" title="Re-seed this year's obligations">↺ Re-seed FY2026</button>
+          <button class="btn btn-sm" style="font-size:11px;background:#2563eb;color:#fff;border:none;" onclick="sendComplianceReminderNow()" title="Send reminder email now">✉️ Email me now</button>
         </div>
 
         <!-- Table -->
@@ -3501,6 +3502,27 @@ function initComplianceData() {
 
 function saveComplianceData() {
   localStorage.setItem('complianceRecords', JSON.stringify(complianceRecords));
+  // Sync to Netlify Blobs so scheduled reminders have up-to-date data
+  fetch('/.netlify/functions/compliance-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(complianceRecords),
+  }).catch(() => {}); // fire-and-forget
+}
+
+async function sendComplianceReminderNow() {
+  showToast('⏳ Sending reminder email…');
+  try {
+    const resp = await fetch('/.netlify/functions/compliance-reminder-manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(complianceRecords),
+    });
+    if (resp.ok) showToast('✅ Reminder email sent to ericlee1219@gmail.com');
+    else showToast('❌ Could not send — check RESEND_API_KEY in Netlify');
+  } catch(e) {
+    showToast('❌ Send failed: ' + e.message);
+  }
 }
 
 function resetComplianceData() {

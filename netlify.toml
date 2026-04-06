@@ -12,3 +12,7 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+
+# Daily compliance reminder — 8:00 AM Pacific (15:00 UTC)
+[functions."compliance-reminder"]
+  schedule = "0 15 * * *"
