@@ -899,67 +899,22 @@
     </div>
   </div>
 
-  <!-- Config panel -->
-  <div class="rent-config-panel" id="rentConfigPanel">
+  <!-- Config panel (hidden inputs — values are hardcoded) -->
+  <input type="hidden" id="csvUrl" />
+  <input type="hidden" id="gmailClientId" />
+  <input type="hidden" id="reminderEmail" />
 
-    <!-- Row 1: Published CSV URL -->
-    <div class="rent-config-row">
-      <span class="rent-config-label">📊 Renter CSV</span>
-      <input type="text" id="csvUrl" style="flex:1;min-width:0;"
-        placeholder="Published CSV URL (Google Sheets: File → Share → Publish to web → CSV)" />
-      <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" onclick="rentLoadSheet()">&#8635; Load</button>
-    </div>
-
-    <!-- Row 2: Gmail OAuth -->
-    <div class="rent-config-row">
+  <!-- Slim Gmail sign-in strip -->
+  <div class="rent-config-panel" id="rentConfigPanel" style="padding:10px 16px;">
+    <div class="rent-config-row" style="gap:10px;">
       <span class="rent-config-label">✉️ Gmail</span>
-      <input type="text" id="gmailClientId"
-        placeholder="OAuth Client ID  (from Google Cloud Console)" />
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-        <button class="btn btn-sm" style="background:#4f46e5;color:#fff;border:none;white-space:nowrap;" id="gmailAuthBtn" onclick="gmailSignIn()">🔑 Sign in with Google</button>
-        <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" id="gmailScanBtn" onclick="gmailSignAndScan()">⚡ Sign in &amp; Scan Now</button>
-        <span id="gmailStatus" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
-      </div>
-    </div>
-
-    <!-- Row 3: Reminder email + auto-scan info -->
-    <div class="rent-config-row">
-      <span class="rent-config-label">🔔 Reminders</span>
-      <input type="email" id="reminderEmail"
-        placeholder="Your email for unpaid-rent reminders (sent on 5th of month)"
-        oninput="localStorage.setItem('reminderEmail', this.value)" />
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Auto-scans days 1–5 · Reminder on day 5</span>
-    </div>
-
-    <!-- Setup help -->
-    <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
-      <a href="#" onclick="toggleSheetHelp(event)" style="font-size:12px;color:var(--muted);text-decoration:none;">ℹ️ How to get these credentials</a>
+      <button class="btn btn-sm" style="background:#4f46e5;color:#fff;border:none;white-space:nowrap;" id="gmailAuthBtn" onclick="gmailSignIn()">🔑 Sign in with Google</button>
+      <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap;" id="gmailScanBtn" onclick="gmailSignAndScan()">⚡ Sign in &amp; Scan Now</button>
+      <span id="gmailStatus" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
     </div>
   </div>
 
   <!-- Setup instructions (collapsible) -->
-  <div id="sheetHelp" style="display:none;background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:16px 20px;margin-bottom:16px;font-size:13px;color:#78350f;line-height:1.7;">
-    <strong>Step 1 — Publish your Google Sheet as CSV</strong>
-    <ol style="margin:6px 0 10px 18px;">
-      <li>Open your Google Sheet → <strong>File → Share → Publish to web</strong>.</li>
-      <li>Choose the correct sheet/tab, set format to <strong>Comma-separated values (.csv)</strong>, and click <strong>Publish</strong>.</li>
-      <li>Copy the URL and paste it in the <em>Renter CSV</em> field above.</li>
-    </ol>
-    <strong>Step 2 — Get an OAuth Client ID (for Gmail)</strong>
-    <ol style="margin:6px 0 10px 18px;">
-      <li>Go to <a href="https://console.cloud.google.com/" target="_blank" style="color:#b45309;">console.cloud.google.com</a>, create a project, and enable <strong>Gmail API</strong>.</li>
-      <li>Go to <strong>Credentials → Create Credentials → OAuth 2.0 Client ID</strong> (Web application).</li>
-      <li>Add your site's origin under <em>Authorized JavaScript origins</em>, copy the Client ID, paste above.</li>
-    </ol>
-    <strong>Step 3 — Enable auto-scan &amp; reminders</strong>
-    <ol style="margin:6px 0 10px 18px;">
-      <li>Enter your email in the <em>Reminders</em> field — you'll get a summary on the 5th if any tenants haven't paid.</li>
-      <li>The dashboard auto-scans Gmail on days 1–5 of each month (after you sign in).</li>
-    </ol>
-    <strong>CSV column layout:</strong> A=Address · C=Renter Name · F=Phone · G=Paid To (filter: "Eric") · H=Rent Amount · I=Your Notification Email · J=Tenant Sender Email (optional) · K=Email Subject keyword (optional) · L=Payment Method<br>
-    <strong>Payment auto-detection:</strong> Venmo: <code>venmo@venmo.com</code> · Zelle: <code>no.reply.alerts@chase.co</code> · PayPal: <code>service@paypal.com</code> · Cash App: <code>cash@square.com</code>
-  </div>
-
   <!-- Rent stats row -->
   <div class="rent-stats" id="rentStats" style="display:none;">
     <div class="rent-stat-card">
@@ -3386,15 +3341,16 @@ window.addEventListener('DOMContentLoaded', () => {
       // Auto-load iCal on startup (URL hardcoded)
       loadIcal(true);
 
-      // Restore CSV URL / Gmail fields — localStorage overrides env vars
-      const DEFAULT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlQcRCsW0dvsmzKfrYJXGZ2up8U9t1BiQ_EBIoqR2qBt3HFgYN-ugdH8WAQAzH8KGLIeghu7pbQPyx/pub?gid=0&single=true&output=csv';
-      const savedCsvUrl = localStorage.getItem('rentCsvUrl') || DEFAULT_CSV_URL;
-      const savedCid    = localStorage.getItem('gmailClientId') || cfg.gmailClientId || '';
-      const savedEmail  = localStorage.getItem('reminderEmail') || '';
-      document.getElementById('csvUrl').value = savedCsvUrl;
-      localStorage.setItem('rentCsvUrl', savedCsvUrl);
-      if (savedCid)   { document.getElementById('gmailClientId').value = savedCid;   localStorage.setItem('gmailClientId', savedCid); }
-      if (savedEmail) document.getElementById('reminderEmail').value = savedEmail;
+      // Hardcoded credentials — no user input needed
+      const DEFAULT_CSV_URL    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSlQcRCsW0dvsmzKfrYJXGZ2up8U9t1BiQ_EBIoqR2qBt3HFgYN-ugdH8WAQAzH8KGLIeghu7pbQPyx/pub?gid=0&single=true&output=csv';
+      const DEFAULT_GMAIL_CID  = '860175895737-s70ubbltljc106jeuvkb4qfmtf9a342l.apps.googleusercontent.com';
+      const DEFAULT_REMINDER   = 'ericlee1219@gmail.com';
+      document.getElementById('csvUrl').value        = DEFAULT_CSV_URL;
+      document.getElementById('gmailClientId').value = DEFAULT_GMAIL_CID;
+      document.getElementById('reminderEmail').value = DEFAULT_REMINDER;
+      localStorage.setItem('rentCsvUrl',    DEFAULT_CSV_URL);
+      localStorage.setItem('gmailClientId', DEFAULT_GMAIL_CID);
+      localStorage.setItem('reminderEmail', DEFAULT_REMINDER);
 
       // Restore tenants from cache + render immediately (no API call needed)
       const cachedTenants = localStorage.getItem('rentTenants');
