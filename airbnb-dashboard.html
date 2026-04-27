@@ -3457,23 +3457,29 @@ function generateFY2026Records() {
     // Property tax both installments (all properties)
     records.push({ id: id('ptax1'), propertyId: p.id, unitId: null, obligationType: 'PROPERTY_TAX_INSTALLMENT_1', fiscalYear: fy, dueDate: `${fy}-11-01`, delinquentDate: `${fy}-12-10`, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
     records.push({ id: id('ptax2'), propertyId: p.id, unitId: null, obligationType: 'PROPERTY_TAX_INSTALLMENT_2', fiscalYear: fy, dueDate: `${fy+1}-02-01`, delinquentDate: `${fy+1}-04-10`, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+
     // Business license tax (triplexes only)
     if (p.type === 'TRIPLEX') {
       records.push({ id: id('blt'), propertyId: p.id, unitId: null, obligationType: 'BUSINESS_LICENSE_TAX', fiscalYear: fy, dueDate: `${fy+1}-03-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
     }
-    // Per-unit records
-    for (const u of COMPLIANCE_UNITS.filter(u => u.propertyId === p.id)) {
-      // RHSP all units
-      records.push({ id: id('rhsp'), propertyId: null, unitId: u.id, obligationType: 'RHSP_SELF_INSPECTION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
-      // Rent Board registration (non-exempt, long-term)
-      if (!p.isRentBoardExempt && u.rentalType === 'LONG_TERM') {
-        records.push({ id: id('rbreg'), propertyId: null, unitId: u.id, obligationType: 'RENT_BOARD_REGISTRATION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
-        records.push({ id: id('sdi'), propertyId: null, unitId: u.id, obligationType: 'SECURITY_DEPOSIT_INTEREST', fiscalYear: fy, dueDate: `${fy+1}-01-31`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
-      }
-      // STR zoning cert (short-term units)
-      if (u.rentalType === 'SHORT_TERM') {
-        records.push({ id: id('str'), propertyId: null, unitId: u.id, obligationType: 'STR_ZONING_CERT', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
-      }
+
+    // RHSP Schedule A — one per property (covers all units)
+    records.push({ id: id('rhsp'), propertyId: p.id, unitId: null, obligationType: 'RHSP_SELF_INSPECTION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+
+    // Rent Board registration — one per non-exempt property
+    if (!p.isRentBoardExempt) {
+      records.push({ id: id('rbreg'), propertyId: p.id, unitId: null, obligationType: 'RENT_BOARD_REGISTRATION', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+    }
+
+    // Security deposit interest — one per non-exempt property
+    if (!p.isRentBoardExempt) {
+      records.push({ id: id('sdi'), propertyId: p.id, unitId: null, obligationType: 'SECURITY_DEPOSIT_INTEREST', fiscalYear: fy, dueDate: `${fy+1}-01-31`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
+    }
+
+    // STR zoning cert — Chaucer only (has a short-term unit)
+    const hasSTR = COMPLIANCE_UNITS.some(u => u.propertyId === p.id && u.rentalType === 'SHORT_TERM');
+    if (hasSTR) {
+      records.push({ id: id('str'), propertyId: p.id, unitId: null, obligationType: 'STR_ZONING_CERT', fiscalYear: fy, dueDate: `${fy}-07-01`, delinquentDate: null, status: 'PENDING', completedAt: null, amountPaid: null, notes: null });
     }
   }
   return records;
