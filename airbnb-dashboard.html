@@ -1178,6 +1178,12 @@ function saveState() {
   localStorage.setItem('notes',         JSON.stringify(notes));
   localStorage.setItem('cleaningDates', JSON.stringify(cleaningDates));
   localStorage.setItem('cleaningCosts', JSON.stringify(cleaningCosts));
+  // Fire-and-forget backup to server so data survives localStorage being cleared
+  fetch('/.netlify/functions/state-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assignments, notes, cleaningDates, cleaningCosts }),
+  }).catch(() => {});
 }
 
 function saveCleaningCost(uid, val) {
@@ -3409,6 +3415,26 @@ window.addEventListener('DOMContentLoaded', () => {
   // Seed compliance data on first load
   initComplianceData();
   renderComplianceTab();
+
+  // If localStorage has no assignment data, restore from server backup
+  if (Object.keys(assignments).length === 0) {
+    fetch('/.netlify/functions/state-sync')
+      .then(r => r.ok ? r.json() : null)
+      .then(state => {
+        if (!state) return;
+        if (state.assignments && Object.keys(state.assignments).length > 0) {
+          assignments   = state.assignments;
+          notes         = state.notes         || {};
+          cleaningDates = state.cleaningDates || {};
+          cleaningCosts = state.cleaningCosts || {};
+          // Persist to localStorage so next load is instant
+          saveState();
+          renderAll();
+          renderIncomeStatement();
+        }
+      })
+      .catch(() => {});
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3487,11 +3513,33 @@ function generateFY2026Records() {
 
 function initComplianceData() {
   const saved = localStorage.getItem('complianceRecords');
-  if (saved) {
-    try { complianceRecords = JSON.parse(saved); return; } catch(_) {}
+  if (saved && saved !== 'null') {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        complianceRecords = parsed;
+        return;
+      }
+    } catch(_) {}
   }
-  complianceRecords = generateFY2026Records();
-  saveComplianceData();
+  // localStorage empty/corrupt — try server backup, then fall back to fresh seed
+  fetch('/.netlify/functions/compliance-sync')
+    .then(r => r.ok ? r.json() : null)
+    .then(records => {
+      if (Array.isArray(records) && records.length > 0) {
+        complianceRecords = records;
+        localStorage.setItem('complianceRecords', JSON.stringify(records));
+      } else {
+        complianceRecords = generateFY2026Records();
+        saveComplianceData();
+      }
+      renderComplianceTab();
+    })
+    .catch(() => {
+      complianceRecords = generateFY2026Records();
+      saveComplianceData();
+      renderComplianceTab();
+    });
 }
 
 function saveComplianceData() {
@@ -3523,9 +3571,16 @@ function resetComplianceData() {
   if (!confirm('Re-seed FY2026 compliance records? This will NOT delete any already-completed items.')) return;
   const existing = complianceRecords;
   const fresh = generateFY2026Records();
-  // Merge: keep completed status from existing records
+  // Merge: carry over completed status. When fresh record has no unitId (per-property),
+  // match any old record with the same obligationType+propertyId+fiscalYear so completions
+  // survive the per-unit → per-property migration.
   const merged = fresh.map(f => {
-    const old = existing.find(e => e.obligationType === f.obligationType && e.unitId === f.unitId && e.propertyId === f.propertyId && e.fiscalYear === f.fiscalYear);
+    const old = existing.find(e =>
+      e.obligationType === f.obligationType &&
+      e.propertyId     === f.propertyId &&
+      e.fiscalYear     === f.fiscalYear &&
+      (f.unitId === null || e.unitId === f.unitId)
+    );
     return old ? { ...f, status: old.status, completedAt: old.completedAt, amountPaid: old.amountPaid, notes: old.notes } : f;
   });
   complianceRecords = merged;
