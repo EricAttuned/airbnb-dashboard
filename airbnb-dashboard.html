@@ -893,8 +893,9 @@
   <!-- Rent table -->
   <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#78350f;line-height:1.8;">
     <strong>⚠️ Monthly Action Items</strong><br>
-    1. Venmo <strong>@2439tenth</strong> → PayPal: <strong>$9,587</strong><br>
-    2. Wire <strong>$11,081</strong> from <strong>@2439tenth</strong> PayPal → <strong>Hok Mo</strong>
+    1. Venmo <strong>@2439tenth</strong> → PayPal: <strong>$9,658</strong><br>
+    2. Wire <strong>$11,166</strong> from <strong>@2439tenth</strong> PayPal → <strong>Hok Mo</strong><br>
+    3. Send <strong>$230.58</strong> to Jose ($25.83 Lemonade insurance + $93.59 ErgoNext business insurance)
   </div>
 
   <!-- Rent table -->
@@ -1813,7 +1814,7 @@ async function rentLoadSheet() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
     const allRows = parseCSV(text);
-    const dataRows = allRows.slice(1); // skip header row
+    const dataRows = allRows.slice(1, 16); // rows 2–16 only; rows 17+ are archived tenants
     tenants = parseSheetRows(dataRows);
     if (!tenants.length) {
       showToast('⚠️ No rows found where Column G contains "Eric".');
