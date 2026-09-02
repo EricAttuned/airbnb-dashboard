@@ -13,6 +13,19 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
 
+# Always revalidate the page itself. Without this, iOS Safari (especially when
+# the dashboard is saved to the Home Screen) can keep serving a cached copy for
+# days, so a device silently runs old code and misses fixes.
+[[headers]]
+  for = "/airbnb-dashboard.html"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
 # Daily compliance reminder — 8:00 AM Pacific (15:00 UTC)
 [functions."compliance-reminder"]
   schedule = "0 15 * * *"
