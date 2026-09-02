@@ -1,4 +1,4 @@
-// Netlify function — save/load dashboard state via Netlify Blobs
+// Netlify Function v2 — save/load dashboard state via Netlify Blobs
 // POST /.netlify/functions/state-sync  — merge state in
 // GET  /.netlify/functions/state-sync  — load state
 //
@@ -8,10 +8,22 @@
 // last actually edited that key on some device. Deciding by arrival order would
 // mean that merely opening the dashboard on a device holding stale data
 // overwrites newer edits made elsewhere.
+//
+// This is a v2 function (export default) rather than a Lambda-style handler:
+// the Blobs context is only reliably injected for v2, and the previous
+// exports.handler version failed with an opaque 500.
 
-const { getStore } = require('@netlify/blobs');
+import { getStore } from '@netlify/blobs';
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Content-Type': 'application/json',
+};
+
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: CORS });
 
 // Values arrive as the raw JSON strings out of localStorage, so an absent key
 // looks like '{}', '[]' or 'null' rather than undefined.
@@ -30,23 +42,37 @@ function normalize(raw) {
   return { values, meta: {}, savedAt: raw.savedAt };
 }
 
-exports.handler = async (event) => {
-  const store = getStore('dashboard-state');
+export default async (req) => {
+  if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: CORS });
 
-  if (event.httpMethod === 'GET') {
+  let store;
+  try {
+    store = getStore({ name: 'dashboard-state', consistency: 'strong' });
+  } catch (e) {
+    // Surface this instead of throwing a bare 500 — a silent failure here is
+    // what made the dashboard report "cloud backup is empty".
+    return json({ error: 'blobs_unavailable', detail: String(e && e.message || e) }, 503);
+  }
+
+  if (req.method === 'GET') {
     try {
       const state = await store.get('state', { type: 'json' });
-      return { statusCode: 200, headers: CORS, body: JSON.stringify(state ?? null) };
+      return json(state ?? null);
     } catch (e) {
-      return { statusCode: 200, headers: CORS, body: 'null' };
+      return json({ error: 'blobs_read_failed', detail: String(e && e.message || e) }, 503);
     }
   }
 
-  if (event.httpMethod === 'POST') {
+  if (req.method === 'POST') {
+    let incoming;
     try {
-      const incoming = normalize(JSON.parse(event.body));
+      incoming = normalize(await req.json());
       if (!incoming) throw new Error('Expected an object');
+    } catch (e) {
+      return json({ error: 'bad_request', detail: String(e && e.message || e) }, 400);
+    }
 
+    try {
       let existing = null;
       try { existing = normalize(await store.get('state', { type: 'json' })); } catch (_) {}
       existing = existing || { values: {}, meta: {} };
@@ -80,13 +106,12 @@ exports.handler = async (event) => {
         }
       }
 
-      const merged = { values, meta, savedAt: new Date().toISOString() };
-      await store.setJSON('state', merged);
-      return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, applied }) };
+      await store.setJSON('state', { values, meta, savedAt: new Date().toISOString() });
+      return json({ ok: true, applied });
     } catch (e) {
-      return { statusCode: 400, body: e.message };
+      return json({ error: 'blobs_write_failed', detail: String(e && e.message || e) }, 503);
     }
   }
 
-  return { statusCode: 405, body: 'Method not allowed' };
+  return json({ error: 'method_not_allowed' }, 405);
 };

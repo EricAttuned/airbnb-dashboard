@@ -1251,7 +1251,10 @@ function pushBackup() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(collectBackup()),
-  }).catch(() => {});
+  }).then(async (r) => {
+    // Swallowing this is what let a broken backend look like a working one.
+    if (!r.ok) console.error('Backup upload failed', r.status, await r.text().catch(() => ''));
+  }).catch((e) => console.error('Backup upload error', e));
 }
 
 // Re-read every live variable from localStorage after a restore/import.
@@ -1332,14 +1335,26 @@ async function pullFromCloud() {
   let backup = null;
   try {
     const resp = await fetch('/.netlify/functions/state-sync');
-    backup = resp.ok ? normalizeBackup(await resp.json()) : null;
-  } catch(_) {
+    const raw  = await resp.text();
+    if (!resp.ok) {
+      // Distinguish a broken backend from a genuinely empty backup — reporting
+      // both as "empty" is what hid a server-side storage failure.
+      let detail = raw;
+      try { const j = JSON.parse(raw); detail = j.detail || j.error || raw; } catch(_) {}
+      console.error('state-sync GET failed', resp.status, raw);
+      showToast(`❌ Cloud sync failed (HTTP ${resp.status})`);
+      alert(`Cloud sync is not working.\n\nHTTP ${resp.status}\n${detail}\n\nDiagnostics: ${location.origin}/.netlify/functions/diag`);
+      return;
+    }
+    backup = normalizeBackup(JSON.parse(raw));
+  } catch(e) {
+    console.error('state-sync GET error', e);
     showToast('❌ Could not reach the cloud backup');
     return;
   }
   const found = backup ? BACKUP_KEYS.filter(k => !isEmptyStored(backup.values[k])) : [];
   if (!found.length) {
-    showToast('☁️ Cloud backup is empty — open the device that has your data first');
+    showToast('☁️ Cloud backup is empty — open the device that has your data, then Sync');
     return;
   }
   if (!confirm(`Replace this browser's data with the cloud backup?\n\n${found.join(', ')}\n\nSaved: ${backup.savedAt || 'unknown'}`)) return;

@@ -26,6 +26,6 @@
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
 
-# Daily compliance reminder — 8:00 AM Pacific (15:00 UTC)
-[functions."compliance-reminder"]
-  schedule = "0 15 * * *"
+# The daily compliance reminder schedule (8:00 AM Pacific / 15:00 UTC) now lives
+# in netlify/functions/compliance-reminder.mjs as `export const config`, which is
+# how v2 functions declare it. Declaring it here too would duplicate it.

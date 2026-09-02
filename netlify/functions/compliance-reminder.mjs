@@ -1,12 +1,16 @@
-// Netlify scheduled function — sends daily compliance reminder email
-// Schedule: 8:00 AM Pacific every day (15:00 UTC)
+// Netlify scheduled function v2 — sends daily compliance reminder email
+// Schedule: 8:00 AM Pacific every day (15:00 UTC), set via `config` below.
 // Reads compliance records from Netlify Blobs, sends email via Resend.
+//
+// v2 (export default) rather than a Lambda-style handler: the Blobs context is
+// only reliably injected for v2, so the previous version could not read the
+// records it needed.
 //
 // Required Netlify env vars:
 //   RESEND_API_KEY  — from resend.com (free account, 3k emails/month)
 //   REMINDER_EMAIL  — recipient address (e.g. ericlee1219@gmail.com)
 
-const { getStore } = require('@netlify/blobs');
+import { getStore } from '@netlify/blobs';
 
 const REMINDER_EMAIL = process.env.REMINDER_EMAIL || 'ericlee1219@gmail.com';
 
@@ -162,25 +166,27 @@ function buildEmailHtml(overdue, upcoming, complete, total) {
   return html;
 }
 
-exports.handler = async () => {
+export const config = { schedule: '0 15 * * *' };
+
+export default async () => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.error('RESEND_API_KEY not set — skipping reminder');
-    return { statusCode: 200, body: 'No API key' };
+    return new Response('No API key', { status: 200 });
   }
 
   let records = [];
   try {
-    const store = getStore('compliance');
+    const store = getStore({ name: 'compliance', consistency: 'strong' });
     records = await store.get('records', { type: 'json' }) || [];
   } catch (e) {
     console.error('Could not read compliance records from Blobs:', e.message);
-    return { statusCode: 200, body: 'No data yet' };
+    return new Response('Blobs unavailable: ' + e.message, { status: 200 });
   }
 
   if (!records.length) {
     console.log('No compliance records saved yet — skipping');
-    return { statusCode: 200, body: 'No records' };
+    return new Response('No records', { status: 200 });
   }
 
   const overdue  = records.filter(r => computeStatus(r) === 'OVERDUE');
@@ -193,7 +199,7 @@ exports.handler = async () => {
   // Only send if there's something to report
   if (!overdue.length && !upcoming.length) {
     console.log('Nothing to remind — skipping email');
-    return { statusCode: 200, body: 'Nothing to remind' };
+    return new Response('Nothing to remind', { status: 200 });
   }
 
   const subject = overdue.length
@@ -219,9 +225,9 @@ exports.handler = async () => {
   if (!emailResp.ok) {
     const err = await emailResp.text();
     console.error('Resend error:', err);
-    return { statusCode: 500, body: err };
+    return new Response(err, { status: 500 });
   }
 
   console.log(`Reminder sent to ${REMINDER_EMAIL}: ${overdue.length} overdue, ${upcoming.length} upcoming`);
-  return { statusCode: 200, body: 'Sent' };
+  return new Response('Sent', { status: 200 });
 };
