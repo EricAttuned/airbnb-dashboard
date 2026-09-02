@@ -703,6 +703,7 @@
   </div>
   <div class="header-actions">
     <button class="btn btn-primary" onclick="loadIcal()">&#8635; Sync Airbnb</button>
+    <button class="btn btn-outline btn-sm" onclick="pullFromCloud()" title="Pull the data saved by your other devices into this browser">&#9729; Sync</button>
     <button class="btn btn-outline btn-sm" onclick="exportBackupFile()" title="Download all your data as a file you keep">&#128190; Backup</button>
     <button class="btn btn-outline btn-sm" onclick="document.getElementById('importBackupInput').click()" title="Restore your data from a backup file">&#8593; Restore</button>
     <input type="file" id="importBackupInput" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)" />
@@ -1179,30 +1180,66 @@ let cleaningCosts  = JSON.parse(localStorage.getItem('cleaningCosts')  || '{}');
 
 // ── Server backup ─────────────────────────────────────────────────────────────
 // Everything the user types lives in localStorage, which the browser can clear
-// (privacy settings, Safari's 7-day cap) and which does not follow you to another
-// device. We mirror every key to Netlify Blobs so it can be restored.
+// and which does not follow you to another device. We mirror every key to
+// Netlify Blobs so any device can pick up where another left off.
 //
-// Values are stored as the raw JSON strings straight out of localStorage rather
-// than as live variables: every save function writes localStorage first, so this
-// is always current, and it avoids depending on variable declaration order.
+// Values move as the raw JSON strings straight out of localStorage: every save
+// function writes localStorage first, so this is always current, and it avoids
+// depending on variable declaration order.
 const BACKUP_KEYS = [
   'assignments', 'notes', 'cleaningDates', 'cleaningCosts',
   'rentPayments', 'rentTenants', 'tenantPhones',
   'revenueItems', 'expenses', 'pendingReview', 'complianceRecords',
 ];
 
-// Uploads are blocked until the server copy has been read and merged. Without
-// this, applyDefaultAssignments() runs on first render and pushes a defaults-only
-// state that overwrites the good backup before we ever get to read it.
+// Each key carries the time it was last genuinely edited on some device. Merges
+// are decided by these stamps, NOT by who loaded last — without them, simply
+// opening the dashboard on a device holding stale data uploads that stale data
+// and destroys newer edits made elsewhere.
+const META_KEY = 'stateMeta';
+
+// Uploads are blocked until the server copy has been read and merged.
 let restoreComplete = false;
 
+// True for a key that holds nothing worth keeping.
+function isEmptyStored(v) {
+  return v == null || v === 'null' || v === '{}' || v === '[]' || v === '';
+}
+
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch(_) { return {}; }
+}
+
+// Record that the user just changed these keys here. Only real user edits stamp;
+// derived writes (default assignments, a fresh compliance seed) must not, or they
+// would outrank another device's genuine edits.
+function stampKeys(keys) {
+  const meta = loadMeta();
+  const now  = new Date().toISOString();
+  for (const k of keys) meta[k] = now;
+  localStorage.setItem(META_KEY, JSON.stringify(meta));
+  return meta;
+}
+
 function collectBackup() {
-  const payload = { savedAt: new Date().toISOString() };
+  const values = {};
   for (const k of BACKUP_KEYS) {
     const v = localStorage.getItem(k);
-    if (v != null) payload[k] = v;
+    if (v != null) values[k] = v;
   }
-  return payload;
+  return { values, meta: loadMeta(), savedAt: new Date().toISOString() };
+}
+
+// Accepts both the current { values, meta } shape and the earlier flat shape
+// where keys sat at the top level, so old backup files still import.
+function normalizeBackup(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw.values && typeof raw.values === 'object') {
+    return { values: raw.values, meta: raw.meta || {}, savedAt: raw.savedAt };
+  }
+  const values = {};
+  for (const k of BACKUP_KEYS) if (raw[k] != null) values[k] = raw[k];
+  return { values, meta: {}, savedAt: raw.savedAt };
 }
 
 function pushBackup() {
@@ -1213,19 +1250,6 @@ function pushBackup() {
     body: JSON.stringify(collectBackup()),
   }).catch(() => {});
 }
-
-// True for a key that holds nothing worth keeping.
-function isEmptyStored(v) {
-  return v == null || v === 'null' || v === '{}' || v === '[]' || v === '';
-}
-
-// Which keys were empty when the page loaded, captured before any code can write.
-// restoreBackup() consults this snapshot rather than live localStorage: otherwise a
-// defaults-only write landing first (applyDefaultAssignments) makes the key look
-// populated and silently blocks the restore of the real data.
-const INITIALLY_EMPTY = new Set(
-  BACKUP_KEYS.filter(k => isEmptyStored(localStorage.getItem(k)))
-);
 
 // Re-read every live variable from localStorage after a restore/import.
 function reloadStateFromStorage() {
@@ -1250,35 +1274,102 @@ function reloadStateFromStorage() {
   if (Array.isArray(savedComp) && savedComp.length) complianceRecords = savedComp;
 }
 
-// Pull the server copy and fill in only the keys this browser is missing, so a
-// device that already has data never gets it overwritten.
+// Take a key from the server when this browser has nothing, or when the server
+// copy was edited more recently than ours.
+function shouldTakeFromServer(k, backup) {
+  const srvVal = backup.values[k];
+  if (isEmptyStored(srvVal)) return false;
+  if (isEmptyStored(localStorage.getItem(k))) return true;
+  const srvT = backup.meta[k], locT = loadMeta()[k];
+  return !!srvT && (!locT || srvT > locT);
+}
+
 async function restoreBackup() {
-  let restoredKeys = [];
+  const restoredKeys = [];
+  let backup = null;
   try {
     const resp = await fetch('/.netlify/functions/state-sync');
-    const backup = resp.ok ? await resp.json() : null;
+    backup = resp.ok ? normalizeBackup(await resp.json()) : null;
     if (backup) {
+      const meta = loadMeta();
       for (const k of BACKUP_KEYS) {
-        if (INITIALLY_EMPTY.has(k) && !isEmptyStored(backup[k])) {
-          localStorage.setItem(k, backup[k]);
+        if (shouldTakeFromServer(k, backup)) {
+          localStorage.setItem(k, backup.values[k]);
+          if (backup.meta[k]) meta[k] = backup.meta[k];
           restoredKeys.push(k);
         }
       }
+      localStorage.setItem(META_KEY, JSON.stringify(meta));
     }
   } catch(_) { /* offline or no backup yet — carry on with local data */ }
+
   restoreComplete = true;
   if (restoredKeys.length) {
     reloadStateFromStorage();
-    showToast(`☁️ Restored ${restoredKeys.length} item(s) from backup`);
+    showToast(`☁️ Synced ${restoredKeys.length} item(s) from your other device`);
   }
+
+  // Seed the backup from this device. Uploads otherwise only happen on an edit,
+  // so a device holding data from before this feature existed never sent it
+  // anywhere and other devices had nothing to pull.
+  const serverLacks = BACKUP_KEYS.some(k =>
+    !isEmptyStored(localStorage.getItem(k)) &&
+    isEmptyStored(backup && backup.values[k])
+  );
+  if (serverLacks) pushBackup();
+
   return restoredKeys;
 }
 
-function saveState() {
+// Explicitly take the server copy over whatever this browser holds. The
+// automatic merge is conservative; this is the manual lever for "my phone is
+// right, this browser is wrong".
+async function pullFromCloud() {
+  showToast('⏳ Checking cloud backup…');
+  let backup = null;
+  try {
+    const resp = await fetch('/.netlify/functions/state-sync');
+    backup = resp.ok ? normalizeBackup(await resp.json()) : null;
+  } catch(_) {
+    showToast('❌ Could not reach the cloud backup');
+    return;
+  }
+  const found = backup ? BACKUP_KEYS.filter(k => !isEmptyStored(backup.values[k])) : [];
+  if (!found.length) {
+    showToast('☁️ Cloud backup is empty — open the device that has your data first');
+    return;
+  }
+  if (!confirm(`Replace this browser's data with the cloud backup?\n\n${found.join(', ')}\n\nSaved: ${backup.savedAt || 'unknown'}`)) return;
+
+  const meta = loadMeta();
+  for (const k of found) {
+    localStorage.setItem(k, backup.values[k]);
+    if (backup.meta[k]) meta[k] = backup.meta[k];
+  }
+  localStorage.setItem(META_KEY, JSON.stringify(meta));
+  reloadStateFromStorage();
+  restoreComplete = true;
+  renderAll();
+  renderRentTracker();
+  renderExpenseTracker();
+  renderIncomeStatement();
+  renderComplianceTab();
+  showToast(`✅ Pulled ${found.length} item(s) from cloud`);
+}
+
+// Writes localStorage without stamping or uploading. For derived values (default
+// assignments, a fresh compliance seed) that must never outrank a real edit made
+// on another device.
+function saveStateLocalOnly() {
   localStorage.setItem('assignments',   JSON.stringify(assignments));
   localStorage.setItem('notes',         JSON.stringify(notes));
   localStorage.setItem('cleaningDates', JSON.stringify(cleaningDates));
   localStorage.setItem('cleaningCosts', JSON.stringify(cleaningCosts));
+}
+
+function saveState() {
+  saveStateLocalOnly();
+  stampKeys(['assignments', 'notes', 'cleaningDates', 'cleaningCosts']);
   pushBackup();
 }
 
@@ -1286,8 +1377,7 @@ function saveState() {
 // A file you control, independent of this browser and of Netlify. This is the
 // only backup that cannot be lost by clearing a browser or switching machines.
 function exportBackupFile() {
-  const payload = collectBackup();
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(collectBackup(), null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `dashboard-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -1302,17 +1392,19 @@ function importBackupFile(input) {
   const reader = new FileReader();
   reader.onload = () => {
     let backup;
-    try { backup = JSON.parse(reader.result); }
+    try { backup = normalizeBackup(JSON.parse(reader.result)); }
     catch(_) { showToast('❌ Not a valid backup file'); return; }
+    if (!backup) { showToast('❌ Not a valid backup file'); return; }
 
-    const found = BACKUP_KEYS.filter(k => !isEmptyStored(backup[k]));
+    const found = BACKUP_KEYS.filter(k => !isEmptyStored(backup.values[k]));
     if (!found.length) { showToast('❌ Backup file has no data in it'); return; }
     if (!confirm(`Restore ${found.length} item(s) from this backup?\n\n${found.join(', ')}\n\nThis replaces the matching data currently in this browser.`)) return;
 
-    for (const k of found) localStorage.setItem(k, backup[k]);
+    for (const k of found) localStorage.setItem(k, backup.values[k]);
+    stampKeys(found);                  // an import is a deliberate act: let it win
     reloadStateFromStorage();
     restoreComplete = true;
-    pushBackup();                    // push the imported data up as the new backup
+    pushBackup();
     renderAll();
     renderRentTracker();
     renderExpenseTracker();
@@ -1321,8 +1413,9 @@ function importBackupFile(input) {
     showToast(`✅ Restored ${found.length} item(s)`);
   };
   reader.readAsText(file);
-  input.value = '';                  // allow re-importing the same file
+  input.value = '';                    // allow re-importing the same file
 }
+
 
 function saveCleaningCost(uid, val) {
   const n = parseFloat(val);
@@ -1375,7 +1468,7 @@ function applyDefaultAssignments() {
       changed = true;
     }
   }
-  if (changed) saveState();
+  if (changed) saveStateLocalOnly();
 }
 
 // Assignments, notes, cleaning dates and costs are all keyed by the iCal UID.
@@ -1912,6 +2005,7 @@ let tenantPhones = JSON.parse(localStorage.getItem('tenantPhones') || '{}');
 function saveTenantPhone(id, phone) {
   tenantPhones[id] = phone;
   localStorage.setItem('tenantPhones', JSON.stringify(tenantPhones));
+  stampKeys(['tenantPhones']);
   pushBackup();
 }
 
@@ -1934,6 +2028,7 @@ let gmailToken = null;   // OAuth access token once signed in
 function saveRentState() {
   localStorage.setItem('rentPayments', JSON.stringify(rentPayments));
   if (tenants.length) localStorage.setItem('rentTenants', JSON.stringify(tenants));
+  stampKeys(tenants.length ? ['rentPayments', 'rentTenants'] : ['rentPayments']);
   pushBackup();
 }
 
@@ -2900,6 +2995,7 @@ let pendingReview = JSON.parse(localStorage.getItem('pendingReview') || '[]');
 
 function savePendingReview() {
   localStorage.setItem('pendingReview', JSON.stringify(pendingReview));
+  stampKeys(['pendingReview']);
   pushBackup();
 }
 
@@ -3052,6 +3148,7 @@ let revenueItems = JSON.parse(localStorage.getItem('revenueItems') || '[]');
 
 function saveRevenueItems() {
   localStorage.setItem('revenueItems', JSON.stringify(revenueItems));
+  stampKeys(['revenueItems']);
   pushBackup();
 }
 
@@ -3395,6 +3492,7 @@ let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
 
 function saveExpenses() {
   localStorage.setItem('expenses', JSON.stringify(expenses));
+  stampKeys(['expenses']);
   pushBackup();
 }
 
@@ -3698,10 +3796,13 @@ async function initComplianceData() {
   } catch(_) { /* fall through to a fresh seed */ }
 
   complianceRecords = generateFY2026Records();
-  saveComplianceData();
+  saveComplianceData(true);
 }
 
-function saveComplianceData() {
+// derived=true for a fresh generated seed, which must not stamp — otherwise
+// merely opening the dashboard on a device with no compliance data would
+// outrank the completions recorded on another device.
+function saveComplianceData(derived) {
   localStorage.setItem('complianceRecords', JSON.stringify(complianceRecords));
   // Sync to Netlify Blobs so scheduled reminders have up-to-date data
   fetch('/.netlify/functions/compliance-sync', {
@@ -3709,7 +3810,10 @@ function saveComplianceData() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(complianceRecords),
   }).catch(() => {}); // fire-and-forget
-  pushBackup();
+  if (!derived) {
+    stampKeys(['complianceRecords']);
+    pushBackup();
+  }
 }
 
 async function sendComplianceReminderNow() {
